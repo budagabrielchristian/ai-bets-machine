@@ -29,3 +29,8 @@ data/
 
 # Video project, not part of the app
 output/
+
+# GitHub Actions working folders (engine runs)
+engine-data/
+vault/
+pages-data/

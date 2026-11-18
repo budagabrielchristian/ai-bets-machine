@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import Leaderboard from '../components/Leaderboard';
 import SlipNotificationSettings from '../components/SlipNotificationSettings';
 import { useBetContext } from '../context/BetContext';
+import { STATIC } from '../services/api';
 
 const LEGACY_KEY = 'practice-account-v1';
 
@@ -40,8 +41,8 @@ export default function Home() {
     <header><h1>The match<br/><em>ledger.</em></h1>
       <div><p>Five betting AIs run around the clock on practice money. Track who is up and who is down.</p><Link to="/bets">Today’s fixtures ↗</Link></div>
     </header>
-    <LegacyImport />
+    {!STATIC && <LegacyImport />}
     <Leaderboard />
-    <SlipNotificationSettings />
+    {STATIC ? <p className="trial-caption">Online view: updated about every 15 minutes by GitHub Actions. View-only; make changes in the local app.</p> : <SlipNotificationSettings />}
   </div>;
 }

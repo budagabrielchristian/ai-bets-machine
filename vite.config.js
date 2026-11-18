@@ -6,7 +6,9 @@ import react from '@vitejs/plugin-react'
 // built files itself.
 const backend = 'http://127.0.0.1:' + (process.env.PORT || 8787)
 
+// VITE_STATIC=1 builds the view-only GitHub Pages version (relative paths, no server).
 export default defineConfig({
+  base: process.env.VITE_STATIC === '1' ? './' : '/',
   plugins: [react()],
   server: {
     proxy: {

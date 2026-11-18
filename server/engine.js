@@ -5,7 +5,7 @@ import { jointMarket } from '../src/services/jointMarket.js';
 import { AI } from './ai/strategies.js';
 import { buildModels } from './ai/ratings.js';
 import { config } from './config.js';
-import { findPrice, getHistory, getMatches, getResults } from './feed.js';
+import { feedStatus, findPrice, getHistory, getMatches, getResults } from './feed.js';
 import { log } from './log.js';
 import { backup, readJson, writeJson } from './store.js';
 
@@ -44,6 +44,19 @@ export function flush() { clearTimeout(saveTimer); writeJson('state.json', state
 export const walletTickets = key =>
   state.tickets.filter(t => (key === 'manual' ? t.source === 'manual' : t.source === 'ai' && t.strategy === key) &&
     (t.season || 1) === state.ais[key].season);
+
+/** What the dashboard reads (no internal fields). */
+export function publicState() {
+  return {
+    ais: Object.fromEntries(Object.entries(state.ais).map(([key, v]) =>
+      [key, { season: v.season, deposit: v.deposit, enabled: v.enabled, lastScan: v.lastScan, note: v.note }])),
+    tickets: state.tickets.map(({ selections, ...t }) => ({ ...t, selections: selections.map(({ jointModel, ...s }) => s) })),
+    settings: state.settings,
+    engine: engineStatus(),
+    feed: feedStatus(),
+    oddsApi: Boolean(config.oddsApiKey),
+  };
+}
 
 export const engineStatus = () => ({ lastTick: state.engine.lastTick || null, error: state.engine.error || null, models: modelInfo });
 
@@ -105,7 +118,7 @@ function trackClosingPrices(matches, now) {
 
 /* -------------------------------------------------------------- models --- */
 
-async function refit() {
+export async function refit() {
   if (fitting) return;
   fitting = true;
   try {

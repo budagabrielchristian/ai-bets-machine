@@ -3,7 +3,7 @@ import { FileText, LogOut, Menu, X } from 'lucide-react';
 import { useBetContext } from '../context/BetContext';
 import { NavLink } from 'react-router-dom';
 import Overlay from './Overlay';
-import { logout } from '../services/api';
+import { logout, STATIC } from '../services/api';
 
 const pages = [['/', 'Leaderboard'], ['/bets', 'Markets'], ['/auto-pilot', 'AI tickets'], ['/my-bets', 'My bets'], ['/analytics', 'Analytics']];
 
@@ -15,7 +15,7 @@ export default function TopNav() {
     <button className="mobile-menu" aria-label="Open navigation" onClick={() => setOpen(true)}><Menu size={20}/></button>
     <nav aria-label="Main navigation" className="wide-nav">{links}</nav>
     <button className="slip-trigger" onClick={toggleSlip}><FileText size={16}/> Bet slip · {bets.length}</button>
-    <button className="sign-out" onClick={logout} title={user ? 'Signed in as ' + user : 'Sign out'}><LogOut size={16}/><span>Sign out</span></button>
+    <button className="sign-out" onClick={logout} title={STATIC ? 'Lock this page' : user ? 'Signed in as ' + user : 'Sign out'}><LogOut size={16}/><span>{STATIC ? 'Lock' : 'Sign out'}</span></button>
     {open && <Overlay label="Navigation" onClose={() => setOpen(false)}>
       <div className="menu-scrim" onClick={() => setOpen(false)}/>
       <nav className="menu-sheet"><button aria-label="Close navigation" onClick={() => setOpen(false)}><X/></button>{links}</nav>

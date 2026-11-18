@@ -1,6 +1,9 @@
 import React from 'react';
 import { MotionConfig } from 'framer-motion';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Routes, Route } from 'react-router-dom';
+import { STATIC } from './services/api';
+
+const Router = STATIC ? HashRouter : BrowserRouter;
 
 import TopNav from './components/TopNav';
 import Home from './pages/Home';

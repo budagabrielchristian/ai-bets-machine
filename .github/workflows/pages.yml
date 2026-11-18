@@ -1,0 +1,80 @@
+# Runs the AIs every ~15 minutes and publishes the dashboard to GitHub Pages.
+# The repository is public, so everything saved or published is encrypted with
+# the DASHBOARD_PASSWORD secret (Settings → Secrets and variables → Actions).
+name: AIs and dashboard
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'   # GitHub may start scheduled runs a few minutes late
+  workflow_dispatch:          # "Run workflow" button on the Actions tab
+  push:
+    branches: [main]
+
+permissions:
+  contents: write   # save the encrypted engine state to the "data" branch
+  pages: write
+  id-token: write
+
+concurrency:
+  group: engine     # never two runs at once (they would overwrite each other's state)
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Restore cached match history
+        uses: actions/cache@v6
+        with:
+          path: engine-data/history
+          key: history-${{ github.run_id }}
+          restore-keys: history-
+
+      - name: Load the saved (encrypted) state
+        run: |
+          mkdir -p vault
+          if git fetch --depth=1 origin data; then git archive origin/data | tar -x -C vault; fi
+
+      - name: Run the AIs (settle, closing prices, models, new tickets)
+        env:
+          DASHBOARD_PASSWORD: ${{ secrets.DASHBOARD_PASSWORD }}
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          DATA_DIR: engine-data
+        run: node server/pages/run-once.js --vault vault --out pages-data/data.enc.json
+
+      - name: Save the encrypted state (one commit, replaced each run)
+        run: |
+          cd vault
+          git init -q -b data
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add salt.txt state.enc.json
+          git commit -q -m "Engine state $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" data
+
+      - name: Build the dashboard
+        env:
+          VITE_STATIC: '1'
+        run: |
+          npm run build
+          cp pages-data/data.enc.json dist/
+
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+      - id: deploy
+        uses: actions/deploy-pages@v5

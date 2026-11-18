@@ -136,23 +136,11 @@ async function handleLogin(req, res, ip) {
 
 const aiKey = key => (Object.hasOwn(AIS, key) ? key : null);
 
-function publicState() {
-  return {
-    ais: Object.fromEntries(Object.entries(engine.state.ais).map(([key, v]) =>
-      [key, { season: v.season, deposit: v.deposit, enabled: v.enabled, lastScan: v.lastScan, note: v.note }])),
-    tickets: engine.state.tickets.map(({ selections, ...t }) => ({ ...t, selections: selections.map(({ jointModel, ...s }) => s) })),
-    settings: engine.state.settings,
-    engine: engine.engineStatus(),
-    feed: feedStatus(),
-    oddsApi: Boolean(config.oddsApiKey),
-  };
-}
-
 async function api(req, res, session, url) {
   const route = req.method + ' ' + url.pathname;
   if (req.method === 'GET') {
     if (route === 'GET /api/me') return json(res, 200, { user: session.user, csrf: session.csrf });
-    if (route === 'GET /api/state') return json(res, 200, publicState());
+    if (route === 'GET /api/state') return json(res, 200, engine.publicState());
     if (route === 'GET /api/matches') {
       try { return json(res, 200, { matches: await getMatches({ maxAge: 60000 }), updatedAt: feedStatus().updatedAt }); }
       catch { return json(res, 503, { error: 'Fixture feed unavailable. Retrying shortly.' }); }

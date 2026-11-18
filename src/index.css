@@ -128,3 +128,13 @@ main:has(dialog[open]),body:has(dialog[open]) main {overflow:hidden}
 @media(max-width:640px){.sign-out span{display:none}.lb-total{text-align:left}}
 .desk .lb-table a {display:inline;background:none;color:#f2f1ec;padding:0;margin:0;border-radius:0;font-weight:600}
 .desk .lb-table a:hover {background:none;transform:none;text-decoration-color:#eee}
+
+/* ---- GitHub Pages password screen ---- */
+.gate {max-width:22rem;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:16px}
+.gate h1 {font:400 2.6rem/1 Georgia,serif;letter-spacing:-.05em;margin-bottom:.5rem}
+.gate p {color:#aaa;font-size:.9rem;margin-bottom:1.6rem}
+.gate label {display:block;font-size:.8rem;color:#bbb;margin-bottom:1rem}
+.gate input {display:block;width:100%;margin-top:.4rem;padding:.75rem;background:#202020;color:#fff;border:1px solid #474747;border-radius:.45rem;font-size:1rem}
+.gate button {width:100%;padding:.8rem;border-radius:2rem;background:#e7e5e0;color:#181818;font-weight:600}
+.gate-error {background:#3a1d1d;border:1px solid #6b2f2f;color:#f3c4c4;padding:.7rem .9rem;border-radius:.45rem;font-size:.85rem;margin-bottom:1.2rem}
+.gate small {display:block;color:#777;margin-top:1.5rem;font-size:.75rem}

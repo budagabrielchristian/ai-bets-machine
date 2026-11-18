@@ -58,7 +58,18 @@ Other commands: `npm test` runs the unit tests. `npm run dry-run` shows what eac
 
 To change a password, run `create-user` again with the same name.
 
-## Later: put it online 24/7
+## Online 24/7 on GitHub Pages (free)
+
+The workflow in `.github/workflows/pages.yml` runs the AIs on GitHub Actions about every 15 minutes, then publishes the dashboard to GitHub Pages.
+
+- **Everything published is encrypted.** The repository is public, so the dashboard data and the engine state (kept on the `data` branch) are encrypted with AES-256-GCM. The key is derived from your password (PBKDF2-SHA256, 600,000 rounds). The page asks for the password and decrypts in your browser; nothing is sent anywhere.
+- **The password:** set a secret named `DASHBOARD_PASSWORD` under Settings → Secrets and variables → Actions. Anyone can download the encrypted files, so use a long passphrase (4+ random words or 16+ characters). Changing it later means starting fresh (delete the `data` branch).
+- **Optional:** add an `ODDS_API_KEY` secret for the Value hunter AI.
+- **One-time setup:** Settings → Pages → Source: **GitHub Actions**.
+- **View-only:** the online page only shows data. Manual bets, pausing an AI and new seasons are done in the local app. The online and local versions keep separate wallets.
+- **Scheduling:** GitHub may start scheduled runs a few minutes late. It pauses schedules in repositories with no activity for 60 days and sends an email; one click on the Actions tab turns them back on.
+
+## Later: your own server (24/7, with editing)
 
 Not needed for local use. These files are only for hosting: `Dockerfile`, `docker-compose.yml`, `Caddyfile`, `.env.example`.
 

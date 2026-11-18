@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useBetContext } from '../context/BetContext';
 import { AIS, MANUAL, STARTING_BALANCE } from '../services/aiCatalog';
 import { aiStats, dailyProfit } from '../services/aiStats';
+import { STATIC } from '../services/api';
 
 const money = (v, sign = true) => (sign ? (v > 0 ? '+' : v < 0 ? '−' : '±') : '') + Math.abs(v).toFixed(2);
 const percent = (v, sign = true) => v === null || v === undefined ? '—' : (sign ? (v > 0 ? '+' : v < 0 ? '−' : '') : '') + Math.abs(v * 100).toFixed(1) + '%';
@@ -159,11 +160,11 @@ export default function Leaderboard() {
         </dl>
         <p className="scan-note">{wallet.enabled === false ? 'Paused. No new tickets until resumed.' : wallet.note || 'Waiting for the first scan.'}</p>
         <details className="method"><summary>How it bets</summary><p>{meta.description}</p></details>
-        <div className="ai-actions">
+        {!STATIC && <div className="ai-actions">
           <button disabled={!!busy} onClick={() => run(key, wallet.enabled === false ? 'enable' : 'pause')}>{wallet.enabled === false ? 'Resume' : 'Pause'}</button>
           <button disabled={!!busy || wallet.enabled === false} onClick={() => run(key, 'scan')}>Scan now</button>
           <button disabled={!!busy} onClick={() => run(key, 'new-season', 'Start a new season for ' + meta.name + '? Its balance goes back to ' + STARTING_BALANCE + ' RON. Old tickets stay in the history.')}>New season</button>
-        </div>
+        </div>}
         <Link to={'/auto-pilot?strategy=' + key}>View tickets ↗</Link>
       </article>;
     })}</div>

@@ -1,6 +1,7 @@
 import { calculateStats } from '../services/ticketStats';
 import React from 'react';
 import AutoPilotReplay from '../components/AutoPilotReplay';
+import { STATIC } from '../services/api';
 import { motion } from 'framer-motion';
 import { useBetContext } from '../context/BetContext';
 import { TrendingUp, Cpu, User, PieChart, Activity } from 'lucide-react';
@@ -32,12 +33,12 @@ const Analytics = () => {
             </h1>
             <p className="text-gray-400">Track and compare the AI's autonomous performance against your manual bets.</p>
           </div>
-          <button 
+          {!STATIC && <button 
             onClick={() => { if (window.confirm('Start a new season for every AI and your manual bets? Balances go back to the starting amount. Old tickets stay in the history.')) clearPortfolio(); }}
             className="bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500 hover:text-white px-6 py-3 rounded-full text-sm font-bold transition-all shadow-lg"
           >
             New season for everyone
-          </button>
+          </button>}
         </div>
 
         
