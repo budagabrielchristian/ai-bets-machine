@@ -36,4 +36,8 @@ export const config = {
   oddsApiIntervalMinutes: Number(env.ODDS_API_INTERVAL_MINUTES) || 120,
   historyDays: Number(env.HISTORY_DAYS) || 365,
   engineEnabled: bool(env.ENGINE_ENABLED, true),
+  // Phone notifications via ntfy: install the ntfy app, subscribe to this secret topic.
+  ntfyTopic: env.NTFY_TOPIC || '',
+  ntfyServer: env.NTFY_SERVER || 'https://ntfy.sh',
+  ntfyClick: env.NTFY_CLICK || '',
 };

@@ -52,6 +52,8 @@ jobs:
         env:
           DASHBOARD_PASSWORD: ${{ secrets.DASHBOARD_PASSWORD }}
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          NTFY_CLICK: https://budagabrielchristian.github.io/ai-bets-machine/
           DATA_DIR: engine-data
         run: node server/pages/run-once.js --vault vault --out pages-data/data.enc.json
 

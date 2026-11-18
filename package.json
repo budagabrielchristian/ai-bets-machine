@@ -13,7 +13,8 @@
     "create-user": "node server/scripts/create-user.js",
     "dry-run": "node server/scripts/dry-run.js",
     "test": "node --test \"server/**/*.test.js\" \"src/**/*.test.js\"",
-    "local": "vite build && node server/index.js"
+    "local": "vite build && node server/index.js",
+    "notify-test": "node server/scripts/notify-test.js"
   },
   "dependencies": {
     "framer-motion": "^13.3.0",

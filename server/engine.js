@@ -7,6 +7,7 @@ import { buildModels } from './ai/ratings.js';
 import { config } from './config.js';
 import { feedStatus, findPrice, getHistory, getMatches, getResults } from './feed.js';
 import { log } from './log.js';
+import { notifyChanges } from './notify.js';
 import { backup, readJson, writeJson } from './store.js';
 
 const MINUTE = 60000, HOUR = 60 * MINUTE, DAY = 24 * HOUR;
@@ -73,9 +74,9 @@ async function settle(now) {
     // The provider groups games by US date; include the neighbouring days.
     for (const delta of [-1, 0, 1]) days.add(ymd(start + delta * DAY));
   }
-  if (!days.size) return 0;
+  if (!days.size) return [];
   const { results, checked } = await getResults([...days]);
-  let changed = 0;
+  const changed = [];
   for (const ticket of state.tickets) {
     if (ticket.status !== 'pending') continue;
     const known = { ...results };
@@ -95,7 +96,7 @@ async function settle(now) {
         const r = known[leg.matchId];
         if (r && !r.void) leg.result = r.homeScore + '–' + r.awayScore;
       }
-      changed++;
+      changed.push(ticket);
     }
   }
   return changed;
@@ -143,10 +144,11 @@ export async function tick({ force = false } = {}) {
   if (busy) return;
   busy = true;
   const now = Date.now();
+  const settled = [], placed = [];
   try {
     if (!fitting && now - lastFit > REFIT_EVERY) refit();
-    const settled = await settle(now);
-    if (settled) log.info('Settled ' + settled + ' tickets');
+    settled.push(...await settle(now));
+    if (settled.length) log.info('Settled ' + settled.length + ' tickets');
     let matches;
     try {
       matches = await getMatches({ force: true });
@@ -166,6 +168,7 @@ export async function tick({ force = false } = {}) {
           .map(t => ({ ...t, season: wallet.season }));
         wallet.lastScan = Date.now();
         state.tickets.unshift(...tickets);
+        placed.push(...tickets);
         wallet.note = tickets.length
           ? 'Placed ' + tickets.length + ' ticket' + (tickets.length > 1 ? 's' : '') + ' at ' + new Date().toISOString().slice(11, 16) + ' UTC'
           : noBetNote(key, matches);
@@ -176,6 +179,7 @@ export async function tick({ force = false } = {}) {
       }
     }
   } finally {
+    await notifyChanges({ placed, settled });
     state.engine.lastTick = Date.now();
     busy = false;
     save();
