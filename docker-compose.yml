@@ -1,0 +1,40 @@
+# Run on a server with Docker:  docker compose up -d --build
+# Then create your account:      docker compose exec app node server/scripts/create-user.js <name> --totp
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      TRUST_PROXY: "true"
+      ODDS_API_KEY: ${ODDS_API_KEY:-}
+      ODDS_API_SPORTS: ${ODDS_API_SPORTS:-soccer_epl}
+    volumes:
+      - app_data:/app/data
+    # Not published to the internet; only Caddy can reach it.
+    expose:
+      - "8787"
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in .env, e.g. bets.example.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [app]
+
+volumes:
+  app_data:
+  caddy_data:
+  caddy_config:
