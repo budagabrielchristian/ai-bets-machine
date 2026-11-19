@@ -183,7 +183,7 @@ export async function tick({ force = false } = {}) {
       }
     }
   } finally {
-    await notifyChanges({ placed, settled });
+    await notifyChanges({ placed, settled, state, now: Date.now() });
     state.engine.lastTick = Date.now();
     busy = false;
     save();

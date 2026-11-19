@@ -40,4 +40,7 @@ export const config = {
   ntfyTopic: env.NTFY_TOPIC || '',
   ntfyServer: env.NTFY_SERVER || 'https://ntfy.sh',
   ntfyClick: env.NTFY_CLICK || '',
+  // "digest" (default): one summary every ntfyDigestHours. "each": one message per ticket.
+  ntfyMode: env.NTFY_MODE === 'each' ? 'each' : 'digest',
+  ntfyDigestHours: Number(env.NTFY_DIGEST_HOURS) || 4,
 };

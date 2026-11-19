@@ -24,9 +24,42 @@ async function send({ title, body, tags, priority = 3 }) {
   }
 }
 
-/** One notification per placed ticket and per settled ticket. */
-export async function notifyChanges({ placed = [], settled = [] }) {
+const key = t => t.source === 'manual' ? 'manual' : t.strategy;
+
+/**
+ * Default ("digest"): count what happened and send one summary every
+ * NTFY_DIGEST_HOURS (4 h) when there is something to report.
+ * NTFY_MODE=each sends one message per ticket instead.
+ */
+export async function notifyChanges({ placed = [], settled = [], state, now = Date.now() }) {
   if (!config.ntfyTopic) return;
+  if (config.ntfyMode === 'each' || !state) return notifyEach({ placed, settled });
+  const d = state.digest ||= { since: now, ais: {} };
+  const row = t => (d.ais[key(t)] ||= { placed: 0, won: 0, lost: 0, refunded: 0, profit: 0 });
+  for (const t of placed) row(t).placed++;
+  for (const t of settled) {
+    const r = row(t);
+    if (t.status === 'won') { r.won++; r.profit += t.potentialReturn - t.stake; }
+    else if (t.status === 'lost') { r.lost++; r.profit -= t.stake; }
+    else if (t.status === 'void') r.refunded++;
+  }
+  if (now - d.since < config.ntfyDigestHours * 3600000) return;
+  const rows = Object.entries(d.ais).filter(([, r]) => r.placed || r.won || r.lost || r.refunded);
+  state.digest = { since: now, ais: {} };
+  if (!rows.length) return;
+  const total = rows.reduce((s, [, r]) => s + r.profit, 0);
+  const settledCount = rows.reduce((s, [, r]) => s + r.won + r.lost, 0);
+  const label = k => k === 'manual' ? 'You' : AIS[k]?.name || k;
+  const body = rows.sort((a, b) => b[1].profit - a[1].profit).map(([k, r]) => label(k) + ': ' + [
+    r.placed && r.placed + ' placed', r.won && r.won + ' won', r.lost && r.lost + ' lost', r.refunded && r.refunded + ' refunded',
+  ].filter(Boolean).join(' · ') + (r.won || r.lost ? ' → ' + ron(r.profit) : '')).join('\n');
+  const hours = Math.round((now - d.since) / 3600000);
+  await send({ title: settledCount ? 'Last ' + hours + 'h: ' + ron(total) + ' (' + settledCount + ' settled)' : 'Last ' + hours + 'h: new bets placed',
+    body, tags: total > 0 ? 'chart_with_upwards_trend' : total < 0 ? 'chart_with_downwards_trend' : 'ticket' });
+}
+
+/** One notification per placed ticket and per settled ticket (NTFY_MODE=each). */
+async function notifyEach({ placed, settled }) {
   for (const t of placed.slice(0, 10)) {
     await send({ title: name(t) + ' placed a bet', tags: 'ticket',
       body: t.stake.toFixed(2) + ' RON @ ' + Number(t.totalOdds).toFixed(2) + ' (to win ' + Number(t.potentialReturn).toFixed(2) + ')\n' + legs(t) });
