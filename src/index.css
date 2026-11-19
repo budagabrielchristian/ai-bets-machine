@@ -298,3 +298,22 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
 @media (prefers-reduced-motion: reduce) {
   button:enabled:active, .desk > header a:active, .slip-trigger:active, .sign-out:active {transform:none}
 }
+
+/* ---- AI cards: 3 on top, 2 wider below, never an empty gap ---- */
+.desk .ai-grid {grid-template-columns:repeat(6,minmax(0,1fr));gap:1px;background:#3a3a38;border:1px solid #3a3a38;border-radius:.75rem;overflow:hidden}
+.ai-grid>article {grid-column:span 2}
+.ai-grid>article:nth-child(4), .ai-grid>article:nth-child(5) {grid-column:span 3}
+@media (max-width:1050px) {
+  .desk .ai-grid {grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ai-grid>article, .ai-grid>article:nth-child(4) {grid-column:auto}
+  .ai-grid>article:last-child:nth-child(odd) {grid-column:1/-1}
+}
+@media (max-width:640px) {
+  .desk .ai-grid {grid-template-columns:1fr}
+  .ai-grid>article:last-child:nth-child(odd) {grid-column:auto}
+}
+.strategy-summary .balance .pl-card {font-size:2.1rem;gap:.5rem}
+.strategy-summary .balance small {margin-top:.6rem}
+.desk .strategy-summary a, .desk .strategy-summary a:hover {background:none;transform:none}
+.desk .strategy-summary a {margin-top:auto;padding-top:1rem}
+.desk .strategy-summary a:hover {color:#fff}

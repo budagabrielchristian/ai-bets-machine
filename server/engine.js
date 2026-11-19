@@ -230,8 +230,8 @@ function noBetNote(key, matches) {
   const soon = matches.filter(m => Date.parse(m.commence_time) > now && Date.parse(m.commence_time) <= now + 3 * DAY);
   const priced = soon.filter(m => m.bookmakers?.length);
   if (!priced.length) return 'No priced fixtures in the next 72 hours.';
-  if (key === 'price' && !priced.some(m => m.bookmakers.length > 1)) return 'Needs two or more bookmakers per fixture (set ODDS_API_KEY). Passed.';
-  return 'Checked ' + priced.length + ' priced fixtures · nothing met the rules. Passing is a decision too.';
+  if (key === 'price' && !priced.some(m => m.bookmakers.length > 1)) return 'Waiting for a second bookmaker. Add an Odds API key to switch it on.';
+  return 'Checked ' + priced.length + ' priced matches. None met the rules this round.';
 }
 
 export function start() {

@@ -7,7 +7,7 @@ import { STATIC } from '../services/api';
 import { ArrowUpRight, Minus, TrendingDown, TrendingUp } from 'lucide-react';
 import { CountUp, Reveal } from './Reveal';
 
-const money = (v, sign = true) => (sign ? (v > 0 ? '+' : v < 0 ? '−' : '±') : '') + Math.abs(v).toFixed(2);
+const money = (v, sign = true) => (sign ? (v > 0.004 ? '+' : v < -0.004 ? '−' : '') : '') + Math.abs(v).toFixed(2);
 const percent = (v, sign = true) => v === null || v === undefined ? '-' : (sign ? (v > 0 ? '+' : v < 0 ? '−' : '') : '') + Math.abs(v * 100).toFixed(1) + '%';
 const trend = v => v > 0.004 ? 'up' : v < -0.004 ? 'down' : 'flat';
 const ICONS = { up: TrendingUp, down: TrendingDown, flat: Minus };
@@ -18,7 +18,7 @@ const DASHES = ['', '6 4', '2 3', '10 3 2 3', '1 5', '14 4'];
 function PL({ value, size, animated }) {
   const Icon = ICONS[trend(value)];
   return <span className={'pl pl-' + trend(value) + (size ? ' pl-' + size : '')}>
-    <Icon className="pl-icon" size={size === 'lg' ? 22 : 13} strokeWidth={2.25} aria-hidden="true" />
+    <Icon className="pl-icon" size={size === 'lg' ? 22 : size === 'card' ? 24 : 13} strokeWidth={2.25} aria-hidden="true" />
     {animated ? <CountUp value={value} format={money} /> : money(value)}<span className="sr-only">{value >= 0 ? ' RON profit' : ' RON loss'}</span>
   </span>;
 }
@@ -174,7 +174,7 @@ export default function Leaderboard() {
       const wallet = account.ais[key] || {};
       return <article className="strategy-summary" key={key}>
         <h3>{meta.name} <small>Season {wallet.season || 1}</small></h3>
-        <div className="balance"><PL value={row.stats.profit} animated /><small>{row.stats.available.toFixed(2)} RON available · streak {row.stats.streak > 0 ? row.stats.streak + ' won' : row.stats.streak < 0 ? -row.stats.streak + ' lost' : '-'}</small></div>
+        <div className="balance"><PL value={row.stats.profit} size="card" animated /><small>{row.stats.available.toFixed(2)} RON available{row.stats.streak ? ', ' + Math.abs(row.stats.streak) + (row.stats.streak > 0 ? ' won' : ' lost') + ' in a row' : ''}</small></div>
         <dl>
           <div><dt>Today</dt><dd><PL value={row.stats.day} /></dd></div>
           <div><dt>Last 30 days</dt><dd><PL value={row.stats.month} /></dd></div>
