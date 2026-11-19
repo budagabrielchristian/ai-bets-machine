@@ -141,7 +141,7 @@ function modelProbability(prediction, option, source) {
 // used only by the backtest to compare variants; production never passes it.
 
 /** Baseline: strong favourites at a fair margin, flat 2% stakes. */
-function favorites(wallet, matches, { now, models, tune = {} }) {
+function favorites(wallet, matches, { now, models, tune = {}, key = 'favorites' }) {
   const candidates = [];
   for (const match of upcoming(matches, now, WINDOW_HOURS)) {
     const options = readOptions(match, now).filter(o => o.market === 'h2h');
@@ -163,7 +163,7 @@ function favorites(wallet, matches, { now, models, tune = {} }) {
     }
   }
   // Favourite accumulators: 2-3 favourites per ticket, combined odds up to 4.00.
-  return place(wallet, candidates, { strategy: 'favorites', exposure: 0.10, perScan: 3, now, maxLegs: 4, maxOdds: 6, ...tune.legs,
+  return place(wallet, candidates, { strategy: key, exposure: 0.10, perScan: 3, now, maxLegs: 4, maxOdds: 6, ...tune.legs,
     stake: (_, bankroll) => Math.floor(bankroll * 0.02) });
 }
 
@@ -171,7 +171,7 @@ function favorites(wallet, matches, { now, models, tune = {} }) {
  * Line shopping: compare the best available price against the no-vig price
  * of other bookmakers. Pinnacle, the sharpest book, is used alone when present.
  */
-function price(wallet, matches, { now, tune = {} }) {
+function price(wallet, matches, { now, tune = {}, key = 'price' }) {
   const candidates = [];
   for (const match of upcoming(matches, now, WINDOW_HOURS)) {
     const options = readOptions(match, now);
@@ -190,7 +190,7 @@ function price(wallet, matches, { now, tune = {} }) {
         rationale: pct(edge) + ' above ' + (sharp ? 'Pinnacle no-vig price' : 'consensus of ' + references.length + ' books') });
     }
   }
-  return place(wallet, candidates, { strategy: 'price', exposure: 0.25, perScan: 3, now, maxLegs: 4, maxOdds: 12, ...tune.legs,
+  return place(wallet, candidates, { strategy: key, exposure: 0.25, perScan: 3, now, maxLegs: 4, maxOdds: 12, ...tune.legs,
     stake: (t, bankroll) => kellyStake({ probability: t.probability, price: t.price, bankroll, cap: 0.04 }) });
 }
 
@@ -228,9 +228,10 @@ function modelValue(strategy, source, minEdge, markets) {
 }
 
 /** 60/10 combination slips; legs are now chosen by model value, not just margin. */
-function slips(wallet, matches, { now, models }) {
+function slips(wallet, matches, { now, models, key = 'slips', stakeFor }) {
   const cash = availableFunds(wallet);
   return buildSlips(wallet, matches, cash, new Date(now), {
+    strategy: key, stakeFor,
     teamLeague: id => models?.homeLeague.get(id),
     probability(match, legInfo) {
       const prediction = predict(models, match);
@@ -246,10 +247,18 @@ function slips(wallet, matches, { now, models }) {
   });
 }
 
+const SINGLES = { legs: { minLegs: 1, maxLegs: 1 } };
+
 export const AI = {
   favorites: { run: favorites },
   price: { run: price },
   slips: { run: slips },
   elo: { run: modelValue('elo', 'elo', 0.025, ['h2h']) },
   poisson: { run: modelValue('poisson', 'poisson', 0.025, ['h2h', 'total', 'handicap']) },
+  // Variants that did best in the backtest (npm run backtest).
+  favSingles: { run: (w, m, ctx) => favorites(w, m, { ...ctx, key: 'favSingles', tune: SINGLES }) },
+  sharpSingles: { run: (w, m, ctx) => price(w, m, { ...ctx, key: 'sharpSingles', tune: { ...SINGLES, minEdge: 0.01 } }) },
+  // 60/10 rules with stakes as a share of the bankroll: 3% up to odds 3.50, 0.5% above (min 1 RON).
+  slipsScaled: { run: (w, m, ctx) => slips(w, m, { ...ctx, key: 'slipsScaled',
+    stakeFor: (tier, bankroll) => Math.max(100, Math.floor(bankroll * (tier.key === 'standard' ? 0.03 : 0.005))) }) },
 };

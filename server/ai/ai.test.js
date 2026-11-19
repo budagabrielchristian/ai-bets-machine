@@ -155,3 +155,13 @@ test('TOTP matches the RFC 6238 test vector', () => {
   // Secret "12345678901234567890" in base32, time 59s -> 94287082 (8 digits) -> 287082 (6 digits).
   assert.equal(totp('GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ', 1), '287082');
 });
+
+test('new variants: favourite singles and scaled 60/10 stakes', () => {
+  const now = Date.parse('2026-11-14T12:00Z');
+  const fav = id => fixture(id, [1.45, 4.4, 7.5], 'x' + id, 'y' + id);
+  const singles = AI.favSingles.run({ deposit: 20000, tickets: [] }, [fav('f1'), fav('f2')], { now, models: null });
+  assert.ok(singles.length >= 1);
+  assert.ok(singles.every(t => t.selections.length === 1 && t.strategy === 'favSingles'));
+  assert.equal(AI.favorites.run({ deposit: 20000, tickets: [] }, [fav('f1'), fav('f2')], { now, models: null })[0].selections.length, 2,
+    'the original Favorites still combines');
+});

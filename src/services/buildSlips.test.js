@@ -71,3 +71,14 @@ test('half-goal handicap settles on regulation goal difference',()=>{
   assert.equal(grade(ticket,{1:{homeScore:2,awayScore:1}}),'won');
   assert.equal(grade(ticket,{1:{homeScore:3,awayScore:1}}),'lost');
 });
+
+test('stake rule option: share of the bankroll instead of fixed 60/10', () => {
+  const stakeFor = (tier, bankroll) => Math.max(100, Math.floor(bankroll * (tier.key === 'standard' ? 0.06 : 0.01)));
+  const tickets = buildSlips({ tickets: [] }, games, 20000, now, { stakeFor, strategy: 'slipsScaled' });
+  assert.ok(tickets.length > 0);
+  for (const t of tickets) {
+    assert.equal(t.strategy, 'slipsScaled');
+    assert.equal(t.stake, t.totalOdds > 3.5 ? 2 : 12, '1% / 6% of 200 RON');
+    assert.equal(t.potentialReturn, Number((t.stake * t.totalOdds).toFixed(2)));
+  }
+});

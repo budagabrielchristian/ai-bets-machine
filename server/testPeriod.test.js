@@ -4,10 +4,12 @@ import assert from 'node:assert/strict';
 process.env.TEST_PERIOD = '1';
 process.env.NTFY_TOPIC = '';
 const { testTick, summaryLines, readTestConfig } = await import('./testPeriod.js');
+const { AIS } = await import('../src/services/aiCatalog.js');
+const KEYS = [...Object.keys(AIS), 'manual'];
 
 const DAY = 86400000;
 function setup() {
-  const state = { ais: Object.fromEntries(['favorites', 'price', 'slips', 'elo', 'poisson', 'manual'].map(k => [k, { season: 1, deposit: 20000 }])), tickets: [] };
+  const state = { ais: Object.fromEntries(KEYS.map(k => [k, { season: 1, deposit: 20000 }])), tickets: [] };
   const seasons = [];
   const newSeason = key => { state.ais[key].season++; seasons.push(key); };
   const walletTickets = key => state.tickets.filter(t => (key === 'manual' ? t.source === 'manual' : t.strategy === key) && t.season === state.ais[key].season);
@@ -22,11 +24,11 @@ test('a test starts a clean season for everyone, then stops new bets after 30 da
   const ctx = setup();
   const t0 = Date.parse('2026-11-19T09:00Z');
   assert.equal(await testTick({ ...ctx, now: t0 }), true);
-  assert.deepEqual(ctx.seasons.sort(), ['elo', 'favorites', 'manual', 'poisson', 'price', 'slips']);
+  assert.deepEqual(ctx.seasons.sort(), [...KEYS].sort());
   assert.equal(ctx.state.test.end, t0 + 30 * DAY);
   // Same id again: no second reset.
   assert.equal(await testTick({ ...ctx, now: t0 + DAY }), true);
-  assert.equal(ctx.seasons.length, 6);
+  assert.equal(ctx.seasons.length, KEYS.length);
   // Weekly summary bookkeeping.
   await testTick({ ...ctx, now: t0 + 7 * DAY + 1 });
   assert.equal(ctx.state.test.lastWeekly, t0 + 7 * DAY + 1);
@@ -46,6 +48,6 @@ test('summary ranks accounts by profit', () => {
   ctx.state.tickets.push(t('favorites', 'lost', 4, 2), t('elo', 'won', 2, 3));
   const lines = summaryLines(ctx.state, ctx.walletTickets);
   assert.match(lines[0], /^1\. Elo ratings: \+4\.00 RON · ROI \+200\.0% · 1W-0L/);
-  assert.match(lines.at(-1), /^5\. Favorites: −4\.00 RON/, 'biggest loss last');
-  assert.equal(lines.length, 5, 'five AIs; manual account hidden when it has no tickets');
+  assert.match(lines.at(-1), /^\d+\. Favorites: −4\.00 RON/, 'biggest loss last');
+  assert.equal(lines.length, Object.keys(AIS).length, 'every AI; manual account hidden when it has no tickets');
 });

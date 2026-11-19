@@ -99,18 +99,22 @@ export function buildSlips(account, matches, cash, now = new Date(), options = {
   const used = new Set(previous.flatMap(t=>t.selections.map(s=>s.matchId)));
   const pool = collectLegs(matches,now,used,options);
   const tickets = [];
+  // Optional stake rule (cents) from the bankroll = cash + money on open slips.
+  const bankroll = cash + previous.filter(t => t.status === 'pending').reduce((s, t) => s + Math.round(t.stake * 100), 0);
   for (const tier of SLIP_TIERS) {
+    const stakeCents = options.stakeFor ? options.stakeFor(tier, bankroll) : tier.stake * 100;
     const open = previous.filter(t => t.status === 'pending' && stakeTier(t) === tier.key).length;
-    if (cash < tier.stake*100 || open >= tier.maxOpen) continue;
+    if (cash < stakeCents || open >= tier.maxOpen) continue;
     const best = bestCombination(pool, tier, used);
     if (!best) continue;
     best.legs.forEach(l=>used.add(l.matchId));
-    cash-=tier.stake*100;
+    cash-=stakeCents;
+    const stake = stakeCents / 100;
     const value = best.legs.every(l=>l.value) ? best.legs.reduce((p, l) => p * l.value, 1) - 1 : undefined;
-    tickets.push({id:crypto.randomUUID(), autoRun:true, source:'ai', strategy:'slips', tier:tier.key, currency:'RON',
-      status:'pending', datePlaced:now.toISOString(), stake:tier.stake,totalOdds:best.odds,
-      potentialReturn:Number((tier.stake*best.odds).toFixed(2)),selections:best.legs,
-      rationale: best.legs.length+' matches at '+best.odds.toFixed(2)+' → '+tier.stake+' RON'+
+    tickets.push({id:crypto.randomUUID(), autoRun:true, source:'ai', strategy:options.strategy || 'slips', tier:tier.key, currency:'RON',
+      status:'pending', datePlaced:now.toISOString(), stake,totalOdds:best.odds,
+      potentialReturn:Number((stake*best.odds).toFixed(2)),selections:best.legs,
+      rationale: best.legs.length+' matches at '+best.odds.toFixed(2)+': '+stake.toFixed(2)+' RON'+
         (value !== undefined ? ' · estimated value '+(value>=0?'+':'')+(value*100).toFixed(1)+'%' : '')});
   }
   return tickets;

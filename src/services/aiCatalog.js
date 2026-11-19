@@ -34,4 +34,25 @@ export const AIS = {
   },
 };
 
+Object.assign(AIS, {
+  favSingles: {
+    name: 'Favorites singles',
+    short: 'FAV1',
+    method: 'Market favourites, one match per ticket',
+    description: 'Same picks as Favorites (fair chance 60%+, odds 1.20 to 1.80, model check) but every bet is a single. Flat 2% of bankroll. In the backtest this cut the loss from -10% to about -2% ROI, because combined tickets multiply the bookmaker margin.',
+  },
+  sharpSingles: {
+    name: 'Sharp singles',
+    short: 'SHP1',
+    method: 'Beat the sharp price, singles only',
+    description: 'Bets a price that is at least 1% better than the no-vig Pinnacle (or consensus) price, one match per ticket, quarter-Kelly stakes capped at 4%. The only method with positive closing line value in the backtest. Needs an Odds API key for a second bookmaker.',
+  },
+  slipsScaled: {
+    name: '60 / 10 scaled',
+    short: '6%/1%',
+    method: '60/10 rules, 3% / 0.5% stakes',
+    description: 'Same slips and team rules as 60 / 10, but the stake grows and shrinks with the wallet: 3% of the bankroll when combined odds are up to 3.50, 0.5% above (minimum 1 RON). In the backtest this avoided bankruptcy, but the rules still lost about 9% of the money staked.',
+  },
+});
+
 export const MANUAL = { name: 'You (manual)', short: 'YOU' };

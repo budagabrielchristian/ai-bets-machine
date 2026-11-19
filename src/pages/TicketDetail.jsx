@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useBetContext } from '../context/BetContext';
 import { AIS } from '../services/aiCatalog';
 import { ticketClv, ticketProfit } from '../services/aiStats';
+import { legOutcome } from '../services/betAnalysis';
 import { CountUp, Reveal } from '../components/Reveal';
 import { ArrowLeft } from 'lucide-react';
 
@@ -20,18 +21,6 @@ const STAKING = {
   poisson: { text: 'Quarter Kelly, capped at 3% of the bankroll.', fraction: 0.25, cap: 0.03 },
   slips: { text: 'Fixed: 60 RON when combined odds are up to 3.50, 10 RON above.', fraction: null },
 };
-
-/** Win / lose for one leg from its final score ("2–1"). */
-function legOutcome(leg) {
-  const m = String(leg.result || '').match(/(\d+)\D+(\d+)/);
-  if (!m) return null;
-  const h = Number(m[1]), a = Number(m[2]);
-  const [home, away] = leg.teams || String(leg.matchTitle).split(' vs ');
-  if (leg.market === 'total') return (leg.side === 'over' ? h + a > leg.line : h + a < leg.line) ? 'won' : 'lost';
-  if (leg.market === 'handicap') return (leg.side === 'home' ? h - a : a - h) + leg.line > 0 ? 'won' : 'lost';
-  const winner = h > a ? home : h < a ? away : 'Draw';
-  return leg.selection === winner ? 'won' : 'lost';
-}
 
 /** The probability the AI used for a leg, and where it came from. */
 function legProbability(leg) {

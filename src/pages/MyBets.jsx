@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBetContext } from '../context/BetContext';
 import { Archive, ArrowUpRight, Clock, Target } from 'lucide-react';
+import BetAnalysis from '../components/BetAnalysis';
 
 const MyBets = ({ autoOnly = false }) => {
   const { placedBets: history, currency,account } = useBetContext();
@@ -35,9 +36,6 @@ const MyBets = ({ autoOnly = false }) => {
     visible: { opacity: 1, y: 0 }
   };
 
-  // Calculate P&L
-  const { totalStaked,totalReturned,netProfit } = calculateStats(placedBets);
-  const isProfit = netProfit >= 0;
 
   return (
     <div className="min-h-screen w-full bg-bg-dark pt-28 pb-32 px-4 md:px-12 font-sans">
@@ -66,25 +64,8 @@ const MyBets = ({ autoOnly = false }) => {
           <label className="block mt-6">Ticket status <select className="bg-neutral-800 p-2 rounded" value={status} onChange={e=>setStatus(e.target.value)}>
             {['all','pending','won','lost','void'].map(value=><option key={value} value={value}>{value === 'void' ? 'Refunded' : value}</option>)}</select></label>
         </section>}
-        {!autoOnly && <>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md">
-            <div className="text-gray-400 text-sm font-bold uppercase tracking-wider mb-2">Settled stakes</div>
-            <div className="text-2xl font-bold text-white">{totalStaked.toFixed(2)} {currency}</div>
-          </div>
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md">
-            <div className="text-gray-400 text-sm font-bold uppercase tracking-wider mb-2">Total Returned</div>
-            <div className="text-2xl font-bold text-accent-green">{totalReturned.toFixed(2)} {currency}</div>
-          </div>
-          <div className={`border rounded-2xl p-6 backdrop-blur-md ${isProfit ? 'bg-accent-green/10 border-accent-green/30' : 'bg-red-500/10 border-red-500/30'}`}>
-            <div className="text-gray-400 text-sm font-bold uppercase tracking-wider mb-2">Net Profit</div>
-            <div className={`text-3xl font-extrabold ${isProfit ? 'text-accent-green' : 'text-red-500'}`}>
-              {isProfit ? '+' : ''}{netProfit.toFixed(2)} {currency}
-            </div>
-          </div>
-        </div>
-
-        </>}
+        {!autoOnly && <BetAnalysis tickets={manualBets} />}
+        {!autoOnly && <h2 className="tickets-heading">Your tickets</h2>}
         {visible.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 bg-white/5 border border-white/5 rounded-3xl">
             <Archive className="w-16 h-16 text-gray-600 mb-4" />

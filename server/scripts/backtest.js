@@ -126,7 +126,7 @@ for (let day = Math.floor(first / DAY) * DAY; day <= last + 4 * DAY; day += DAY)
   for (const [key, ai] of Object.entries(AI)) {
     const w = wallets[key];
     // Single-book view (like DraftKings in production); the Value hunter also sees Pinnacle.
-    const tickets = ai.run(w, upcoming.map(m => view(m, key === 'price')), { now, models, tune: TUNE });
+    const tickets = ai.run(w, upcoming.map(m => view(m, key === 'price' || key === 'sharpSingles')), { now, models, tune: TUNE });
     w.tickets.unshift(...tickets);
   }
   for (const w of Object.values(wallets)) {

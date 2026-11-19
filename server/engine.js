@@ -2,7 +2,7 @@
 import { AIS, STARTING_BALANCE } from '../src/services/aiCatalog.js';
 import { builderPrice, grade } from '../src/services/practice.js';
 import { jointMarket } from '../src/services/jointMarket.js';
-import { AI } from './ai/strategies.js';
+import { AI, readOptions } from './ai/strategies.js';
 import { ELO, buildModels, marketProbability, predict } from './ai/ratings.js';
 import { config } from './config.js';
 import { feedStatus, findPrice, getHistory, getMatches, getResults } from './feed.js';
@@ -278,10 +278,10 @@ export async function placeManual({ stake, selections }) {
     if (!offers.length) throw new UserError('That price is no longer available.');
     const offer = offers.find(o => Math.abs(o.price - Number(s.price)) < 0.005);
     if (!offer) throw new UserError('The price for ' + wanted.selection + ' changed. Refresh and try again.');
-    return { matchId: match.id, matchDate: match.commence_time, matchTitle: match.home_team + ' vs ' + match.away_team,
-      competition: match.sport_title, bookmaker: offer.bookmaker, market, selection: wanted.selection,
-      side: market === 'h2h' ? undefined : wanted.side, line: market === 'h2h' ? undefined : wanted.line,
-      price: offer.price, openingPrice: offer.price,
+    const legBase = { matchId: match.id, matchDate: match.commence_time, matchTitle: match.home_team + ' vs ' + match.away_team,
+      teams: [match.home_team, match.away_team], competition: match.sport_title, bookmaker: offer.bookmaker, market, selection: wanted.selection,
+      side: market === 'h2h' ? undefined : wanted.side, line: market === 'h2h' ? undefined : wanted.line };
+    return { ...legBase, ...legNumbers(match, legBase), price: offer.price, openingPrice: offer.price,
       jointModel: market === 'total' ? jointMarket(match) || undefined : undefined };
   });
   const odds = builderPrice(legs);
@@ -295,6 +295,21 @@ export async function placeManual({ stake, selections }) {
 }
 
 export class UserError extends Error {}
+
+/**
+ * For the bet analysis: the market's fair chance (margin removed) and the
+ * model's chance for a manual leg, captured when the bet is placed.
+ */
+function legNumbers(match, leg) {
+  const option = readOptions(match, Date.now()).find(o => o.bookmaker === leg.bookmaker && o.market === leg.market &&
+    (o.market === 'h2h' ? o.selection === leg.selection : o.side === leg.side && o.line === leg.line));
+  if (!option) return {};
+  const out = { marketProbability: option.fair, pickSide: option.side };
+  const p = models && predict(models, match);
+  if (p?.poisson) out.modelProbability = marketProbability(p.poisson.matrix, option);
+  else if (p?.elo && option.market === 'h2h') out.modelProbability = p.elo[option.side];
+  return out;
+}
 
 /* ------------------------------------------------- import old browser data --- */
 
