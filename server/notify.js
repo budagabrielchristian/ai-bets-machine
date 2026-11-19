@@ -27,8 +27,8 @@ async function send({ title, body, tags, priority = 3 }) {
 const key = t => t.source === 'manual' ? 'manual' : t.strategy;
 
 /**
- * Default ("digest"): count what happened and send one summary every
- * NTFY_DIGEST_HOURS (4 h) when there is something to report.
+ * Default ("digest"): one grouped message per engine pass that had activity
+ * (or at most one every NTFY_DIGEST_HOURS when that is set).
  * NTFY_MODE=each sends one message per ticket instead.
  */
 export async function notifyChanges({ placed = [], settled = [], state, now = Date.now() }) {
@@ -54,7 +54,9 @@ export async function notifyChanges({ placed = [], settled = [], state, now = Da
     r.placed && r.placed + ' placed', r.won && r.won + ' won', r.lost && r.lost + ' lost', r.refunded && r.refunded + ' refunded',
   ].filter(Boolean).join(' · ') + (r.won || r.lost ? ' → ' + ron(r.profit) : '')).join('\n');
   const hours = Math.round((now - d.since) / 3600000);
-  await send({ title: settledCount ? 'Last ' + hours + 'h: ' + ron(total) + ' (' + settledCount + ' settled)' : 'Last ' + hours + 'h: new bets placed',
+  const when = hours >= 1 ? 'Last ' + hours + 'h: ' : '';
+  const placedCount = rows.reduce((s, [, r]) => s + r.placed, 0);
+  await send({ title: settledCount ? when + ron(total) + ' (' + settledCount + ' settled)' : when + placedCount + ' new bet' + (placedCount > 1 ? 's' : '') + ' placed',
     body, tags: total > 0 ? 'chart_with_upwards_trend' : total < 0 ? 'chart_with_downwards_trend' : 'ticket' });
 }
 

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 process.env.NTFY_TOPIC = 'unit-test-topic';
+process.env.NTFY_DIGEST_HOURS = '4';
 const sent = [];
 globalThis.fetch = async (url, init) => { sent.push(JSON.parse(init.body)); return { ok: true }; };
 const { notifyChanges } = await import('./notify.js');
@@ -23,4 +24,19 @@ test('digest: one summary after 4 hours, nothing in between', async () => {
   // A quiet period sends nothing.
   await notifyChanges({ state, now: t0 + 8 * H, placed: [], settled: [] });
   assert.equal(sent.length, 1);
+});
+
+test('instant mode: one grouped message per pass with activity', async () => {
+  delete process.env.NTFY_DIGEST_HOURS;
+  const { config } = await import('./config.js');
+  config.ntfyDigestHours = 0;
+  sent.length = 0;
+  const state = {};
+  await notifyChanges({ state, now: 1, placed: [t('elo', 'pending', 2, 3), t('poisson', 'pending', 1, 4)], settled: [] });
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].title, '2 new bets placed');
+  await notifyChanges({ state, now: 2, placed: [], settled: [] });
+  assert.equal(sent.length, 1, 'quiet pass sends nothing');
+  await notifyChanges({ state, now: 3, placed: [], settled: [t('elo', 'won', 2, 3)] });
+  assert.equal(sent[1].title, '+4.00 RON (1 settled)');
 });
