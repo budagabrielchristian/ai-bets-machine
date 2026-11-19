@@ -46,6 +46,7 @@ jobs:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           NTFY_CLICK: https://budagabrielchristian.github.io/ai-bets-machine/
           DATA_DIR: engine-data
+          TEST_PERIOD: '1'
           GH_TOKEN: ${{ github.token }}
         # Run from a copy: the loop updates the checkout to the newest code each pass.
         run: cp server/pages/loop.sh "$RUNNER_TEMP/loop.sh" && bash "$RUNNER_TEMP/loop.sh"

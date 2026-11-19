@@ -81,6 +81,20 @@ function DailyGrid({ rows }) {
   </table></div>;
 }
 
+/** Progress of the fixed-length test period (online engine only). */
+function TestBanner({ test }) {
+  const DAY = 86400000;
+  const fmt = ms => new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  const now = Date.now();
+  const day = Math.min(test.days, Math.max(1, Math.ceil((now - test.start) / DAY)));
+  const done = now >= test.end;
+  return <div className="test-banner" role="status">
+    <div><strong>{done ? (test.finished ? 'Test finished: final results' : 'Test over: waiting for the last tickets to settle') : 'Test period · day ' + day + ' of ' + test.days}</strong>
+      <span>{fmt(test.start)} → {fmt(test.end)}{done ? ' · no new bets' : ' · every AI started at 200 RON'}</span></div>
+    {!done && <div className="test-progress" aria-hidden="true"><span style={{ width: Math.round(100 * (now - test.start) / (test.end - test.start)) + '%' }} /></div>}
+  </div>;
+}
+
 export default function Leaderboard() {
   const { account, aiAction, error } = useBetContext();
   const [busy, setBusy] = useState('');
@@ -116,6 +130,8 @@ export default function Leaderboard() {
       <div><h2 id="lb-title">AI leaderboard</h2><p role="status">{status}</p></div>
       <div className="lb-total"><small>All AIs combined</small><PL value={totals.profit} size="lg" /><small>{totals.pending} open · {totals.reserved.toFixed(2)} RON at risk</small></div>
     </div>
+
+    {account.test && <TestBanner test={account.test} />}
 
     <div className="lb-table-wrap"><table className="lb-table">
       <thead><tr>

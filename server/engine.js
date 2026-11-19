@@ -8,6 +8,7 @@ import { config } from './config.js';
 import { feedStatus, findPrice, getHistory, getMatches, getResults } from './feed.js';
 import { log } from './log.js';
 import { notifyChanges } from './notify.js';
+import { testTick } from './testPeriod.js';
 import { backup, readJson, writeJson } from './store.js';
 
 const MINUTE = 60000, HOUR = 60 * MINUTE, DAY = 24 * HOUR;
@@ -56,6 +57,7 @@ export function publicState() {
     engine: engineStatus(),
     feed: feedStatus(),
     oddsApi: Boolean(config.oddsApiKey),
+    test: state.test || null,
   };
 }
 
@@ -159,8 +161,10 @@ export async function tick({ force = false } = {}) {
       return;
     }
     trackClosingPrices(matches, Date.now());
+    const betting = await testTick({ state, now: Date.now(), newSeason, walletTickets });
     for (const [key, ai] of Object.entries(AI)) {
       const wallet = state.ais[key];
+      if (!betting) { wallet.note = 'Test period finished · no new bets. Final results are on the leaderboard.'; continue; }
       if (!wallet.enabled || (!force && Date.now() - wallet.lastScan < SCAN_EVERY)) continue;
       if ((key === 'elo' || key === 'poisson') && !models) { wallet.note = 'Learning team ratings from past results…'; continue; }
       try {

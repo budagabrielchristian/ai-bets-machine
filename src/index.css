@@ -138,3 +138,9 @@ main:has(dialog[open]),body:has(dialog[open]) main {overflow:hidden}
 .gate button {width:100%;padding:.8rem;border-radius:2rem;background:#e7e5e0;color:#181818;font-weight:600}
 .gate-error {background:#3a1d1d;border:1px solid #6b2f2f;color:#f3c4c4;padding:.7rem .9rem;border-radius:.45rem;font-size:.85rem;margin-bottom:1.2rem}
 .gate small {display:block;color:#777;margin-top:1.5rem;font-size:.75rem}
+
+.test-banner {margin-top:1.5rem;border:1px solid #4a4a47;background:#1b1b1a;padding:1rem 1.2rem;display:grid;gap:.7rem}
+.test-banner strong {display:block;font-size:1rem}
+.test-banner span {font-size:.8rem;color:#aaa}
+.test-progress {height:6px;background:#2c2c2a;border-radius:3px;overflow:hidden}
+.test-progress span {display:block;height:100%;background:#e7e5e0}

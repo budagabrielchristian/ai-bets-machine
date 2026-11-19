@@ -53,7 +53,7 @@ fs.writeFileSync(outFile, JSON.stringify(encrypt(key, salt, { generatedAt: Date.
 // is alive without the password. No matches, selections or amounts are included.
 const { config } = await import('../config.js');
 const status = { lastPass: new Date().toISOString(), fixtures: matches.length, models: engine.engineStatus().models.status,
-  notifications: Boolean(config.ntfyTopic), feedError: state.engine?.error || null, ais: {} };
+  notifications: Boolean(config.ntfyTopic), test: state.test || null, feedError: state.engine?.error || null, ais: {} };
 for (const [key, ai] of Object.entries(state.ais)) {
   const mine = state.tickets.filter(t => (key === 'manual' ? t.source === 'manual' : t.strategy === key) && (t.season || 1) === ai.season);
   status.ais[key] = { open: mine.filter(t => t.status === 'pending').length, settled: mine.filter(t => ['won', 'lost'].includes(t.status)).length,

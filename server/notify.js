@@ -48,4 +48,7 @@ export async function notifyChanges({ placed = [], settled = [] }) {
   }
 }
 
+/** A summary message (test start, weekly report, final report). */
+export const sendReport = (title, body, tags, priority = 4) => send({ title, body, tags, priority });
+
 export const sendTest = () => send({ title: 'AI Bets Machine', tags: 'tada', body: 'Notifications are working. You will get one when an AI places, wins or loses a bet.' });
