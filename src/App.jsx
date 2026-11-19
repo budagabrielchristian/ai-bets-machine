@@ -10,6 +10,8 @@ import Home from './pages/Home';
 import AllBets from './pages/AllBets';
 import MyBets from './pages/MyBets';
 import Analytics from './pages/Analytics';
+import MatchDetail from './pages/MatchDetail';
+import TicketDetail from './pages/TicketDetail';
 import { BetProvider } from './context/BetContext';
 import BetSlip from './components/BetSlip';
 
@@ -26,6 +28,8 @@ const App = () => {
               <Route path="/my-bets" element={<MyBets />} />
               <Route path="/auto-pilot" element={<MyBets autoOnly />} />
               <Route path="/analytics" element={<Analytics />} />
+              <Route path="/match/:id" element={<MatchDetail />} />
+              <Route path="/ticket/:id" element={<TicketDetail />} />
             </Routes>
           </main>
           

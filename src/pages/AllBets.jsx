@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, Clock, Filter, Cpu, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
 
 import { useBetContext } from '../context/BetContext';
+import { Link } from 'react-router-dom';
 
 import AIAnalysisModal from '../components/AIAnalysisModal';
 
@@ -472,6 +473,7 @@ const AllBets = () => {
                                 <div className="font-semibold text-white text-base leading-none group-hover:text-accent-green transition-colors">{match.home_team}</div>
 
                                 <div className="font-semibold text-white text-base leading-none">{match.away_team}</div>
+                                <Link to={'/match/' + match.id} onClick={e => e.stopPropagation()} className="stats-link">Stats & model ↗</Link>
 
                                 <div className="text-xs text-gray-500 mt-2 flex items-center">
 

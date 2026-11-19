@@ -103,7 +103,7 @@ const MyBets = ({ autoOnly = false }) => {
                 let statusColor = 'bg-yellow-500';
                 let statusText = receipt.status === 'void' ? 'Refunded' : 'Pending';
                 if (receipt.status === 'won') {
-                  statusColor = 'bg-accent-green';
+                  statusColor = 'bg-emerald-500';
                   statusText = 'WON';
                 } else if (receipt.status === 'lost') {
                   statusColor = 'bg-red-500';
@@ -129,8 +129,11 @@ const MyBets = ({ autoOnly = false }) => {
                         <span>{new Date(receipt.datePlaced).toLocaleString()}</span>
                       </div>
                       
-                      <div className={`text-[10px] font-bold px-3 py-1 rounded-full text-bg-dark uppercase tracking-wider ${statusColor}`}>
-                        {receipt.source === 'ai' ? 'Auto-Pilot' : 'Manual'} · {statusText}
+                      <div className="flex items-center gap-3">
+                        <Link to={'/ticket/' + receipt.id} className="stats-link">Details & maths ↗</Link>
+                        <div className={`text-[10px] font-bold px-3 py-1 rounded-full text-bg-dark uppercase tracking-wider ${statusColor}`}>
+                          {receipt.source === 'ai' ? 'Auto-Pilot' : 'Manual'} · {statusText}
+                        </div>
                       </div>
                     </div>
 

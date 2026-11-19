@@ -3,7 +3,7 @@ import { AIS, STARTING_BALANCE } from '../src/services/aiCatalog.js';
 import { builderPrice, grade } from '../src/services/practice.js';
 import { jointMarket } from '../src/services/jointMarket.js';
 import { AI } from './ai/strategies.js';
-import { buildModels } from './ai/ratings.js';
+import { ELO, buildModels, marketProbability, predict } from './ai/ratings.js';
 import { config } from './config.js';
 import { feedStatus, findPrice, getHistory, getMatches, getResults } from './feed.js';
 import { log } from './log.js';
@@ -59,6 +59,41 @@ export function publicState() {
     oddsApi: Boolean(config.oddsApiKey),
     test: state.test || null,
   };
+}
+
+/**
+ * Model numbers for the match page: Elo win/draw/loss and ratings, Poisson
+ * expected goals, a 6x6 score matrix and derived markets, and recent form.
+ */
+export function matchInsights(matches) {
+  if (!models) return {};
+  const out = {};
+  const r4 = v => Math.round(v * 10000) / 10000;
+  const names = new Map(matches.flatMap(m => [[m.homeId, m.home_team], [m.awayId, m.away_team]]));
+  const form = id => (models.form.get(id) || []).map(g => ({ ...g, opp: names.get(g.opp) || null,
+    res: g.gf > g.ga ? 'W' : g.gf < g.ga ? 'L' : 'D' }));
+  for (const m of matches) {
+    if (Date.parse(m.commence_time) < Date.now() - 3 * HOUR || !m.homeId) continue;
+    const p = predict(models, m);
+    if (!p) continue;
+    const ins = { form: { home: form(m.homeId), away: form(m.awayId) } };
+    if (p.elo) ins.elo = { home: r4(p.elo.home), draw: r4(p.elo.draw), away: r4(p.elo.away), homeAdvantage: ELO.home,
+      homeRating: Math.round(models.elo.ratings.get(m.homeId)), awayRating: Math.round(models.elo.ratings.get(m.awayId)),
+      homeGames: models.elo.games.get(m.homeId) || 0, awayGames: models.elo.games.get(m.awayId) || 0 };
+    if (p.poisson) {
+      const mx = p.poisson.matrix;
+      const q = o => r4(marketProbability(mx, o));
+      let btts = 0;
+      for (let h = 1; h < mx.length; h++) for (let a = 1; a < mx[h].length; a++) btts += mx[h][a];
+      ins.poisson = { homeGoals: r4(p.poisson.homeRate), awayGoals: r4(p.poisson.awayRate),
+        home: q({ market: 'h2h', side: 'home' }), draw: q({ market: 'h2h', side: 'draw' }), away: q({ market: 'h2h', side: 'away' }),
+        over15: q({ market: 'total', side: 'over', line: 1.5 }), over25: q({ market: 'total', side: 'over', line: 2.5 }),
+        over35: q({ market: 'total', side: 'over', line: 3.5 }), btts: r4(btts),
+        matrix: mx.slice(0, 6).map(row => row.slice(0, 6).map(r4)) };
+    }
+    out[m.id] = ins;
+  }
+  return out;
 }
 
 export const engineStatus = () => ({ lastTick: state.engine.lastTick || null, error: state.engine.error || null, models: modelInfo });

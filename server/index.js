@@ -142,7 +142,10 @@ async function api(req, res, session, url) {
     if (route === 'GET /api/me') return json(res, 200, { user: session.user, csrf: session.csrf });
     if (route === 'GET /api/state') return json(res, 200, engine.publicState());
     if (route === 'GET /api/matches') {
-      try { return json(res, 200, { matches: await getMatches({ maxAge: 60000 }), updatedAt: feedStatus().updatedAt }); }
+      try {
+        const matches = await getMatches({ maxAge: 60000 });
+        return json(res, 200, { matches, updatedAt: feedStatus().updatedAt, insights: engine.matchInsights(matches) });
+      }
       catch { return json(res, 503, { error: 'Fixture feed unavailable. Retrying shortly.' }); }
     }
     return json(res, 404, { error: 'Not found' });

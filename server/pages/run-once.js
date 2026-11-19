@@ -47,7 +47,7 @@ fs.writeFileSync(stateFile, JSON.stringify(encrypt(key, salt, state)));
 let matches = [];
 try { matches = await getMatches({ maxAge: 15 * 60000 }); } catch { /* the page shows the feed error */ }
 fs.mkdirSync(path.dirname(outFile), { recursive: true });
-fs.writeFileSync(outFile, JSON.stringify(encrypt(key, salt, { generatedAt: Date.now(), state: engine.publicState(), matches })));
+fs.writeFileSync(outFile, JSON.stringify(encrypt(key, salt, { generatedAt: Date.now(), state: engine.publicState(), matches, insights: engine.matchInsights(matches) })));
 
 // Numbers-only status, NOT encrypted: lets anyone (including you) check the engine
 // is alive without the password. No matches, selections or amounts are included.

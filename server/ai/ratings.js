@@ -206,8 +206,19 @@ export function buildModels(results, now = Date.now()) {
   for (const [id, counts] of leagueCount) {
     homeLeague.set(id, [...counts.entries()].sort((x, y) => y[1] - x[1])[0][0]);
   }
+  // Last six results per team, newest first, for the match page.
+  const form = new Map();
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const r = sorted[i];
+    for (const [id, home] of [[r.homeId, true], [r.awayId, false]]) {
+      if (!form.has(id)) form.set(id, []);
+      const list = form.get(id);
+      if (list.length < 6) list.push({ date: r.date, home, opp: home ? r.awayId : r.homeId,
+        gf: home ? r.homeScore : r.awayScore, ga: home ? r.awayScore : r.homeScore });
+    }
+  }
   return {
-    fittedAt: now, results: results.length,
+    fittedAt: now, results: results.length, form,
     elo: { ratings: elo.ratings, games: elo.games, curve },
     leagues, homeLeague,
   };

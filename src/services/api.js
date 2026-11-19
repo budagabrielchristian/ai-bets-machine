@@ -42,7 +42,7 @@ async function staticGet(path) {
   if (path === '/api/me') return { user: 'owner', csrf: '' };
   await reloadStatic();
   if (path === '/api/state') return staticData.state;
-  if (path === '/api/matches') return { matches: staticData.matches, updatedAt: staticData.generatedAt };
+  if (path === '/api/matches') return { matches: staticData.matches, updatedAt: staticData.generatedAt, insights: staticData.insights || {} };
   throw new Error('Not available online');
 }
 
