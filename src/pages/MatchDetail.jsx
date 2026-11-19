@@ -4,6 +4,7 @@ import { useBetContext } from '../context/BetContext';
 import { AIS } from '../services/aiCatalog';
 import { powerDevig } from '../../server/ai/math.js';
 import { CountUp, Reveal } from '../components/Reveal';
+import { ArrowLeft, ArrowUpRight } from 'lucide-react';
 
 const pct = (v, d = 1) => Number.isFinite(v) ? (v * 100).toFixed(d) + '%' : '-';
 const signed = v => Number.isFinite(v) ? (v >= 0 ? '+' : '−') + Math.abs(v * 100).toFixed(1) + '%' : '-';
@@ -52,7 +53,7 @@ export default function MatchDetail() {
   const leg = tickets[0]?.selections.find(s => String(s.matchId) === String(id));
 
   if (!match) {
-    return <div className="desk detail"><Link to="/bets" className="back">← Markets</Link>
+    return <div className="desk detail"><Link to="/bets" className="back"><ArrowLeft size={15} aria-hidden="true" /> Markets</Link>
       <h1>{leg?.matchTitle || 'Match'}</h1>
       <p>{oddsFeed.loading ? 'Loading…' : 'This match is no longer in the live feed (it finished or is outside the next few days). Its tickets are below.'}</p>
       <TicketList tickets={tickets} matchId={id} />
@@ -68,7 +69,7 @@ export default function MatchDetail() {
   const e = insight?.elo, p = insight?.poisson;
 
   return <div className="desk detail">
-    <Link to="/bets" className="back">← Markets</Link>
+    <Link to="/bets" className="back"><ArrowLeft size={15} aria-hidden="true" /> Markets</Link>
     <Reveal as="header" className="detail-head">
       <p className="eyebrow">{match.sport_title} · {kickoff(match.commence_time)}{match.statusLabel ? ', ' + match.statusLabel : ''}</p>
       <h1>{match.home_team} <em>vs</em> {match.away_team}</h1>
@@ -136,6 +137,6 @@ function TicketList({ tickets, matchId }) {
     const s = t.selections.find(x => String(x.matchId) === String(matchId));
     return <li key={t.id}><Link to={'/ticket/' + t.id}>
       <b>{t.source === 'manual' ? 'You' : AIS[t.strategy]?.name || t.strategy}</b> · {s?.selection} @ {s?.price}
-      {t.selections.length > 1 ? ' · ' + t.selections.length + '-match ticket' : ''} · {Number(t.stake).toFixed(2)} RON · <span className={'status-' + t.status}>{t.status}</span> ↗</Link></li>;
+      {t.selections.length > 1 ? ' · ' + t.selections.length + '-match ticket' : ''} · {Number(t.stake).toFixed(2)} RON · <span className={'status-' + t.status}>{t.status}</span> <ArrowUpRight size={13} aria-hidden="true" /></Link></li>;
   })}</ul>;
 }

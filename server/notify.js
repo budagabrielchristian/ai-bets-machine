@@ -9,11 +9,12 @@ const name = t => t.source === 'manual' ? 'You' : AIS[t.strategy]?.name || t.str
 const legs = t => t.selections.map(s => '• ' + s.matchTitle + ' → ' + s.selection + ' @ ' + s.price).join('\n');
 const ron = v => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(2) + ' RON';
 
-async function send({ title, body, tags, priority = 3 }) {
+async function send({ title, body, priority = 3 }) {
   if (!config.ntfyTopic) return;
   try {
     // JSON publishing keeps any character (−, →, diacritics) intact, unlike HTTP headers.
-    const message = { topic: config.ntfyTopic, title, message: body, tags: tags.split(','), priority };
+    // No tags: ntfy turns tags into emoji, and the interface is emoji-free.
+    const message = { topic: config.ntfyTopic, title, message: body, priority };
     if (config.ntfyClick) message.click = config.ntfyClick;
     const res = await fetch(config.ntfyServer.replace(/\/$/, '') + '/', {
       method: 'POST', body: JSON.stringify(message), headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(10000),

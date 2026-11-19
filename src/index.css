@@ -231,3 +231,70 @@ main:has(dialog[open]),body:has(dialog[open]) main {overflow:hidden}
 
 .score-grid td {color:#e7e5e0;font-variant-numeric:tabular-nums}
 .score-grid td.hot {font-weight:700;color:#fff}
+
+/* ---- Leaderboard polish ---- */
+.pl {display:inline-flex;align-items:center;gap:.3rem}
+.pl-icon {flex:none}
+.lb-total .pl-lg {gap:.45rem}
+.lb-table-wrap, .daily-wrap, .profit-chart, .test-banner {border-radius:.75rem}
+.lb-table tbody tr {transition:background-color .2s}
+.lb-table tbody tr:hover {background:#1b1b1a}
+.lb-table tbody tr:first-child .rank {position:relative}
+.strategy-summary {transition:background-color .25s, transform .35s cubic-bezier(.16,1,.3,1)}
+.strategy-summary:hover {background:#1d1d1c}
+.desk .strategy-summary a {display:inline-flex;align-items:center;gap:.35rem}
+.desk .strategy-summary a svg {transition:transform .25s cubic-bezier(.16,1,.3,1)}
+.desk .strategy-summary a:hover svg, .stats-link:hover svg {transform:translate(2px,-2px)}
+.stats-link svg {display:inline;vertical-align:-2px;transition:transform .25s cubic-bezier(.16,1,.3,1)}
+.detail .back {display:inline-flex;align-items:center;gap:.4rem}
+.detail .back svg {transition:transform .25s cubic-bezier(.16,1,.3,1)}
+.detail .back:hover svg {transform:translateX(-3px)}
+.desk header a svg {transition:transform .25s cubic-bezier(.16,1,.3,1)}
+.desk header a:hover svg {transform:translate(2px,-2px)}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Table rows, AI cards and day cells come in one after another. */
+  [data-inview] :is(.lb-table tbody tr, .ai-grid>article) {transition:opacity .55s cubic-bezier(.16,1,.3,1), transform .55s cubic-bezier(.16,1,.3,1), background-color .2s}
+  [data-inview="false"] :is(.lb-table tbody tr, .ai-grid>article) {opacity:0;transform:translateY(12px)}
+  [data-inview] :is(.lb-table tbody tr, .ai-grid>article):nth-child(2) {transition-delay:.06s, .06s, 0s}
+  [data-inview] :is(.lb-table tbody tr, .ai-grid>article):nth-child(3) {transition-delay:.12s, .12s, 0s}
+  [data-inview] :is(.lb-table tbody tr, .ai-grid>article):nth-child(4) {transition-delay:.18s, .18s, 0s}
+  [data-inview] :is(.lb-table tbody tr, .ai-grid>article):nth-child(5) {transition-delay:.24s, .24s, 0s}
+  [data-inview] :is(.lb-table tbody tr, .ai-grid>article):nth-child(n+6) {transition-delay:.3s, .3s, 0s}
+  [data-inview] .daily td {transition:opacity .45s ease, transform .45s cubic-bezier(.16,1,.3,1)}
+  [data-inview="false"] .daily td {opacity:0;transform:translateY(6px)}
+  /* Sparklines and the profit chart draw from left to right. */
+  [data-inview] :is(.spark, .chart-draw) {transition:clip-path 1.2s cubic-bezier(.65,0,.35,1) .2s;clip-path:inset(0 0 0 0)}
+  [data-inview="false"] :is(.spark, .chart-draw) {clip-path:inset(0 100% 0 0)}
+  /* The test progress bar fills up. */
+  .test-progress span {animation:fill 1.2s cubic-bezier(.16,1,.3,1) both;transform-origin:left}
+  @keyframes fill {from{transform:scaleX(0)}}
+}
+
+/* ---- Premium, clicky buttons (every button and button-like link) ---- */
+:root {--press:cubic-bezier(.2,.8,.2,1)}
+button, .desk a:not(.stats-link):not(.back):not([class*="pl"]), .slip-trigger, .sign-out {
+  -webkit-tap-highlight-color:transparent;
+  transition:transform .18s var(--press), background-color .2s ease, border-color .2s ease, box-shadow .25s ease, color .2s ease, opacity .2s ease;
+}
+button:enabled {cursor:pointer}
+/* Solid pill buttons: soft top highlight, lift on hover, physical press on click. */
+.desk > header a, .desk section > button, .notification-settings button, .gate button, .desk .controls + button {
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.65), 0 1px 2px rgba(0,0,0,.35), 0 6px 16px -8px rgba(0,0,0,.6);
+}
+.desk > header a:hover, .notification-settings button:enabled:hover, .gate button:enabled:hover {
+  transform:translateY(-1px);box-shadow:inset 0 1px 0 rgba(255,255,255,.7), 0 2px 4px rgba(0,0,0,.35), 0 12px 24px -10px rgba(0,0,0,.7);
+}
+/* Outline buttons (AI actions, refresh, bet slip, filters). */
+.desk .ai-actions button, .feed-toolbar button, .slip-trigger {box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+.desk .ai-actions button:enabled:hover, .feed-toolbar button:enabled:hover, .slip-trigger:hover {border-color:#8a8a86;background:#232322;transform:translateY(-1px)}
+/* The press itself: quick squash, quicker release. */
+button:enabled:active, .desk > header a:active, .slip-trigger:active, .sign-out:active, .desk .strategy-summary a:active {
+  transform:translateY(1px) scale(.97);transition-duration:.06s;
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.35);
+}
+/* Clear keyboard focus. */
+button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible {outline:2px solid #e7e5e0;outline-offset:3px;border-radius:.5rem}
+@media (prefers-reduced-motion: reduce) {
+  button:enabled:active, .desk > header a:active, .slip-trigger:active, .sign-out:active {transform:none}
+}

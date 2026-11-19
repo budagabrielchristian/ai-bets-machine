@@ -4,6 +4,7 @@ import { useBetContext } from '../context/BetContext';
 import { AIS } from '../services/aiCatalog';
 import { ticketClv, ticketProfit } from '../services/aiStats';
 import { CountUp, Reveal } from '../components/Reveal';
+import { ArrowLeft } from 'lucide-react';
 
 const pct = (v, d = 1) => Number.isFinite(v) ? (v * 100).toFixed(d) + '%' : '-';
 const signed = v => Number.isFinite(v) ? (v >= 0 ? '+' : '−') + Math.abs(v * 100).toFixed(1) + '%' : '-';
@@ -44,7 +45,7 @@ export default function TicketDetail() {
   const { id } = useParams();
   const { account } = useBetContext();
   const t = account.tickets.find(x => x.id === id);
-  if (!t) return <div className="desk detail"><Link to="/auto-pilot" className="back">← AI tickets</Link><h1>Ticket</h1>
+  if (!t) return <div className="desk detail"><Link to="/auto-pilot" className="back"><ArrowLeft size={15} aria-hidden="true" /> AI tickets</Link><h1>Ticket</h1>
     <p>{account.loaded ? 'Ticket not found.' : 'Loading…'}</p></div>;
 
   const who = t.source === 'manual' ? 'You (manual)' : AIS[t.strategy]?.name || t.strategy;
@@ -64,7 +65,7 @@ export default function TicketDetail() {
   const settled = t.status === 'won' || t.status === 'lost';
 
   return <div className="desk detail">
-    <Link to={t.source === 'manual' ? '/my-bets' : '/auto-pilot?strategy=' + t.strategy} className="back">← {who} tickets</Link>
+    <Link to={t.source === 'manual' ? '/my-bets' : '/auto-pilot?strategy=' + t.strategy} className="back"><ArrowLeft size={15} aria-hidden="true" /> {who} tickets</Link>
     <Reveal as="header" className="detail-head">
       <p className="eyebrow">{who}{t.season ? ', season ' + t.season : ''}. Placed {when(t.datePlaced)}{t.settledAt ? ', settled ' + when(t.settledAt) : ''}</p>
       <h1>{t.selections.length > 1 ? t.selections.length + '-match ticket' : 'Single bet'} <em>@ {odds.toFixed(2)}</em></h1>

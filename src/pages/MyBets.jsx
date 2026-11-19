@@ -6,7 +6,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBetContext } from '../context/BetContext';
-import { Archive, Clock, DollarSign, Target } from 'lucide-react';
+import { Archive, ArrowUpRight, Clock, Target } from 'lucide-react';
 
 const MyBets = ({ autoOnly = false }) => {
   const { placedBets: history, currency,account } = useBetContext();
@@ -130,7 +130,7 @@ const MyBets = ({ autoOnly = false }) => {
                       </div>
                       
                       <div className="flex items-center gap-3">
-                        <Link to={'/ticket/' + receipt.id} className="stats-link">Details & maths ↗</Link>
+                        <Link to={'/ticket/' + receipt.id} className="stats-link">Details & maths <ArrowUpRight size={13} aria-hidden="true" /></Link>
                         <div className={`text-[10px] font-bold px-3 py-1 rounded-full text-bg-dark uppercase tracking-wider ${statusColor}`}>
                           {receipt.source === 'ai' ? 'Auto-Pilot' : 'Manual'} · {statusText}
                         </div>

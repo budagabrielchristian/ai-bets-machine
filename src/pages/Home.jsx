@@ -4,6 +4,7 @@ import Leaderboard from '../components/Leaderboard';
 import SlipNotificationSettings from '../components/SlipNotificationSettings';
 import { useBetContext } from '../context/BetContext';
 import { STATIC } from '../services/api';
+import { ArrowUpRight } from 'lucide-react';
 
 const LEGACY_KEY = 'practice-account-v1';
 
@@ -39,7 +40,7 @@ function LegacyImport() {
 export default function Home() {
   return <div className="desk">
     <header><h1>The match<br/><em>ledger.</em></h1>
-      <div><p>Five betting AIs run around the clock on practice money. Track who is up and who is down.</p><Link to="/bets">Today’s fixtures ↗</Link></div>
+      <div><p>Five betting AIs run around the clock on practice money. Track who is up and who is down.</p><Link to="/bets">Today’s fixtures <ArrowUpRight size={16} strokeWidth={2} aria-hidden="true" /></Link></div>
     </header>
     {!STATIC && <LegacyImport />}
     <Leaderboard />
