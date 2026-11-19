@@ -3,12 +3,13 @@ import { Link, useParams } from 'react-router-dom';
 import { useBetContext } from '../context/BetContext';
 import { AIS } from '../services/aiCatalog';
 import { ticketClv, ticketProfit } from '../services/aiStats';
+import { CountUp, Reveal } from '../components/Reveal';
 
-const pct = (v, d = 1) => Number.isFinite(v) ? (v * 100).toFixed(d) + '%' : '—';
-const signed = v => Number.isFinite(v) ? (v >= 0 ? '+' : '−') + Math.abs(v * 100).toFixed(1) + '%' : '—';
+const pct = (v, d = 1) => Number.isFinite(v) ? (v * 100).toFixed(d) + '%' : '-';
+const signed = v => Number.isFinite(v) ? (v >= 0 ? '+' : '−') + Math.abs(v * 100).toFixed(1) + '%' : '-';
 const ron = v => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(2) + ' RON';
 const cls = v => !Number.isFinite(v) ? '' : v > 0.0005 ? 'pl-up' : v < -0.0005 ? 'pl-down' : '';
-const when = iso => iso ? new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Bucharest' }) : '—';
+const when = iso => iso ? new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Bucharest' }) : '-';
 
 // How each AI sizes its stake (see server/ai/strategies.js).
 const STAKING = {
@@ -64,19 +65,21 @@ export default function TicketDetail() {
 
   return <div className="desk detail">
     <Link to={t.source === 'manual' ? '/my-bets' : '/auto-pilot?strategy=' + t.strategy} className="back">← {who} tickets</Link>
-    <p className="eyebrow">{who}{t.season ? ' · season ' + t.season : ''} · placed {when(t.datePlaced)}{t.settledAt ? ' · settled ' + when(t.settledAt) : ''}</p>
-    <h1>{t.selections.length > 1 ? t.selections.length + '-match ticket' : 'Single bet'} <em>@ {odds.toFixed(2)}</em></h1>
+    <Reveal as="header" className="detail-head">
+      <p className="eyebrow">{who}{t.season ? ', season ' + t.season : ''}. Placed {when(t.datePlaced)}{t.settledAt ? ', settled ' + when(t.settledAt) : ''}</p>
+      <h1>{t.selections.length > 1 ? t.selections.length + '-match ticket' : 'Single bet'} <em>@ {odds.toFixed(2)}</em></h1>
+    </Reveal>
 
-    <div className="stat-tiles">
+    <Reveal as="div" className="stat-tiles" delay={0.08}>
       <div><small>Status</small><strong className={'status-' + t.status}>{t.status === 'void' ? 'refunded' : t.status}</strong></div>
-      <div><small>Stake</small><strong>{Number(t.stake).toFixed(2)} RON</strong></div>
-      <div><small>Potential return</small><strong>{Number(t.potentialReturn).toFixed(2)} RON</strong></div>
+      <div><small>Stake</small><strong><CountUp value={Number(t.stake)} format={v => v.toFixed(2) + ' RON'} /></strong></div>
+      <div><small>Potential return</small><strong><CountUp value={Number(t.potentialReturn)} format={v => v.toFixed(2) + ' RON'} /></strong></div>
       <div><small>Result</small><strong className={settled ? (profit >= 0 ? 'pl-up' : 'pl-down') : ''}>{settled ? ron(profit) : t.status === 'void' ? '±0.00 RON' : 'open'}</strong></div>
-      <div><small title="Closing line value">CLV</small><strong className={cls(clv)}>{clv === null ? '—' : signed(clv)}</strong></div>
-    </div>
+      <div><small title="Closing line value">CLV</small><strong className={cls(clv)}>{clv === null ? '-' : signed(clv)}</strong></div>
+    </Reveal>
     {t.rationale && <p className="lede">Why: {t.rationale}</p>}
 
-    <section>
+    <Reveal>
       <h2>The matches</h2>
       <div className="table-wrap"><table className="stats-table">
         <thead><tr><th scope="col">Match</th><th scope="col">Pick</th><th scope="col">Price</th><th scope="col" title="1 ÷ price">Implied</th>
@@ -87,13 +90,13 @@ export default function TicketDetail() {
           <td>{l.selection}<small>{l.bookmaker}</small></td><td>{Number(l.price).toFixed(2)}</td><td>{pct(1 / l.price)}</td>
           <td>{pct(l.marketProbability ?? l.referenceProbability)}</td><td>{pct(l.modelProbability)}</td>
           <td title={l.source}>{pct(l.p)}</td><td className={cls(l.p * l.price - 1)}>{signed(l.p * l.price - 1)}</td>
-          <td>{l.closingPrice ? Number(l.closingPrice).toFixed(2) : '—'}</td><td className={cls(l.clv)}>{signed(l.clv)}</td>
-          <td className={l.outcome === 'won' ? 'pl-up' : l.outcome === 'lost' ? 'pl-down' : ''}>{l.result ? l.result + (l.outcome ? ' · ' + l.outcome : '') : '—'}</td>
+          <td>{l.closingPrice ? Number(l.closingPrice).toFixed(2) : '-'}</td><td className={cls(l.clv)}>{signed(l.clv)}</td>
+          <td className={l.outcome === 'won' ? 'pl-up' : l.outcome === 'lost' ? 'pl-down' : ''}>{l.result ? String(l.result).replace('–', '-') + (l.outcome ? ', ' + l.outcome : '') : '-'}</td>
         </tr>)}</tbody>
       </table></div>
-    </section>
+    </Reveal>
 
-    <section className="maths">
+    <Reveal className="maths">
       <h2>The maths</h2>
       <dl>
         <div><dt>Combined odds</dt><dd>{legs.map(l => Number(l.price).toFixed(2)).join(' × ')} = <b>{product.toFixed(2)}</b>{Math.abs(product - odds) > 0.01 ? ' (same-match builder priced at ' + odds.toFixed(2) + ')' : ''}</dd></div>
@@ -104,9 +107,9 @@ export default function TicketDetail() {
         <div><dt>Kelly stake</dt><dd>(p × odds − 1) ÷ (odds − 1) = ({pct(pWin, 2)} × {odds.toFixed(2)} − 1) ÷ {(odds - 1).toFixed(2)} = <b>{pct(kelly, 2)}</b> of the bankroll
           <small>{rule ? rule.text : 'You chose this stake yourself.'}{rule?.fraction ? ' Here: ' + pct(kelly * rule.fraction, 2) + (kelly * rule.fraction > rule.cap ? ', capped at ' + pct(rule.cap, 0) : '') + ', with a 1 RON minimum.' : ''}</small></dd></div>
         <div><dt>Payout</dt><dd>{Number(t.stake).toFixed(2)} × {odds.toFixed(2)} = <b>{Number(t.potentialReturn).toFixed(2)} RON</b> if every match wins; profit {ron(t.potentialReturn - t.stake)}</dd></div>
-        <div><dt>Closing line value</dt><dd>{legs.some(l => l.closingPrice) ? legs.map(l => l.closingPrice ? Number(l.price).toFixed(2) + ' ÷ ' + Number(l.closingPrice).toFixed(2) : '—').join(' · ') + ' → ' : ''}<b className={cls(clv)}>{clv === null ? 'after kickoff' : signed(clv)}</b>
+        <div><dt>Closing line value</dt><dd>{legs.some(l => l.closingPrice) ? legs.map(l => l.closingPrice ? Number(l.price).toFixed(2) + ' ÷ ' + Number(l.closingPrice).toFixed(2) : '-').join(' · ') + ' → ' : ''}<b className={cls(clv)}>{clv === null ? 'after kickoff' : signed(clv)}</b>
           <small>Positive means the AI got a better price than the market's final price. Over many bets this is the best sign of real skill.</small></dd></div>
       </dl>
-    </section>
+    </Reveal>
   </div>;
 }

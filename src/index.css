@@ -186,3 +186,48 @@ main:has(dialog[open]),body:has(dialog[open]) main {overflow:hidden}
 .maths dd {font-size:.9rem;font-variant-numeric:tabular-nums}
 .maths dd small {display:block;color:#888;font-size:.75rem;margin-top:.3rem}
 @media(max-width:640px){.maths dl>div{grid-template-columns:1fr;gap:.3rem}}
+
+/* ---- Detail page polish ---- */
+/* Links inside tables are plain text links, never the page's pill buttons. */
+.desk .stats-table a, .desk .ticket-links a {display:inline;background:none;color:#f2f1ec;padding:0;margin:0;border-radius:0;font-weight:600;
+  text-decoration:underline;text-underline-offset:4px;text-decoration-color:#4a4a47;transition:text-decoration-color .2s,color .2s}
+.desk .stats-table a:hover, .desk .ticket-links a:hover {background:none;transform:none;color:#fff;text-decoration-color:#e7e5e0}
+.detail-head {padding-bottom:1.5rem;border-bottom:1px solid #2e2e2c;margin-bottom:.5rem}
+.detail .table-wrap, .stat-tiles, .maths dl {border-radius:.75rem;overflow:hidden}
+.stats-table tbody tr {transition:background-color .2s}
+.stats-table tbody tr:hover {background:#1c1c1b}
+.stats-table tbody th {font-weight:600;color:#f2f1ec}
+.stats-table td {font-variant-numeric:tabular-nums}
+.pcell {display:inline-block;width:5rem;text-align:right}
+.pcell i {display:block;height:2px;margin-top:5px;border-radius:2px;background:currentColor;opacity:.55;transform-origin:right;transform:scaleX(var(--p,0))}
+.stat-tiles>div {transition:background-color .25s}
+.stat-tiles>div:hover {background:#1e1e1d}
+.maths dl>div {transition:background-color .25s}
+.maths dl>div:hover {background:#1d1d1c}
+.maths dd b {font-size:1.02rem}
+
+/* ---- Detail page motion (Reveal sets data-inview; reduced motion skips all of it) ---- */
+@media (prefers-reduced-motion: no-preference) {
+  [data-inview] .stats-table tbody tr, [data-inview] .maths dl>div, [data-inview] .form-list li, [data-inview] .ticket-links li {
+    transition:opacity .5s cubic-bezier(.16,1,.3,1), transform .5s cubic-bezier(.16,1,.3,1), background-color .2s}
+  [data-inview="false"] .stats-table tbody tr, [data-inview="false"] .maths dl>div,
+  [data-inview="false"] .form-list li, [data-inview="false"] .ticket-links li {opacity:0;transform:translateY(10px)}
+  [data-inview] :is(.stats-table tbody tr, .maths dl>div, .form-list li, .ticket-links li):nth-child(2) {transition-delay:.05s, .05s, 0s}
+  [data-inview] :is(.stats-table tbody tr, .maths dl>div, .form-list li, .ticket-links li):nth-child(3) {transition-delay:.1s, .1s, 0s}
+  [data-inview] :is(.stats-table tbody tr, .maths dl>div, .form-list li, .ticket-links li):nth-child(4) {transition-delay:.15s, .15s, 0s}
+  [data-inview] :is(.stats-table tbody tr, .maths dl>div, .form-list li, .ticket-links li):nth-child(5) {transition-delay:.2s, .2s, 0s}
+  [data-inview] :is(.stats-table tbody tr, .maths dl>div, .form-list li, .ticket-links li):nth-child(6) {transition-delay:.25s, .25s, 0s}
+  [data-inview] :is(.stats-table tbody tr, .maths dl>div, .form-list li, .ticket-links li):nth-child(7) {transition-delay:.3s, .3s, 0s}
+  [data-inview] :is(.stats-table tbody tr, .maths dl>div, .form-list li, .ticket-links li):nth-child(n+8) {transition-delay:.35s, .35s, 0s}
+  [data-inview] .pcell i {transition:transform .9s cubic-bezier(.16,1,.3,1) .25s}
+  [data-inview="false"] .pcell i {transform:scaleX(0)}
+  [data-inview] .score-grid td {transition:opacity .6s ease, transform .6s cubic-bezier(.16,1,.3,1)}
+  [data-inview="false"] .score-grid td {opacity:0;transform:scale(.9)}
+}
+
+/* Detail headers stack (the home page header is a two-column row). */
+.desk .detail-head {display:block;gap:0;padding-bottom:1.75rem}
+.desk .detail-head .eyebrow {margin-bottom:.6rem}
+
+.score-grid td {color:#e7e5e0;font-variant-numeric:tabular-nums}
+.score-grid td.hot {font-weight:700;color:#fff}
