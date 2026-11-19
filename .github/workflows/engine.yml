@@ -1,0 +1,48 @@
+# The AIs, 24/7. One run loops every 15 minutes for ~5h20m, then starts the
+# next run itself. The hourly schedule is only a safety net in case the chain
+# ever breaks (GitHub's own scheduler is too unreliable to be the main trigger).
+name: AI engine (24/7)
+
+on:
+  schedule:
+    - cron: '7 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write   # save the encrypted state and dashboard data to the "data" branch
+  actions: write    # start the next run when this one ends
+
+concurrency:
+  group: engine     # one engine at a time; extra triggers wait instead of running twice
+  cancel-in-progress: false
+
+jobs:
+  engine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Restore cached match history
+        uses: actions/cache@v6
+        with:
+          path: engine-data/history
+          key: history-${{ github.run_id }}
+          restore-keys: history-
+
+      - name: Run the AIs every 15 minutes, then hand over
+        env:
+          DASHBOARD_PASSWORD: ${{ secrets.DASHBOARD_PASSWORD }}
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          NTFY_CLICK: https://budagabrielchristian.github.io/ai-bets-machine/
+          DATA_DIR: engine-data
+          GH_TOKEN: ${{ github.token }}
+        run: bash server/pages/loop.sh

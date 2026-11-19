@@ -14,7 +14,8 @@ let csrf = '';
 /* ------------------------------------------------- GitHub Pages mode --- */
 
 let staticData = null, staticKey = null, loadedAt = 0;
-export const DATA_FILE = './data.enc.json';
+// Built with VITE_DATA_URL pointing at the "data" branch, which the engine updates every 15 minutes.
+export const DATA_FILE = import.meta.env.VITE_DATA_URL || './data.enc.json';
 
 export async function fetchBox() {
   const response = await fetch(DATA_FILE + '?t=' + Date.now(), { cache: 'no-store' });
