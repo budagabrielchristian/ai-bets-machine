@@ -13,15 +13,18 @@ export const WINDOW_HOURS = 72;
 /* ------------------------------------------------------- market reading --- */
 
 /** Every priced outcome at every bookmaker, with that book's fair probability. */
-export function readOptions(match, now = Date.now()) {
+// Prices from the Odds API are refreshed every few hours, so allow older quotes.
+const QUOTE_MAX_AGE = 4 * HOUR;
+
+export function readOptions(match, now = Date.now(), { includeExtra = true } = {}) {
   const options = [];
   for (const book of match.bookmakers || []) {
-    if (!book?.title) continue;
+    if (!book?.title || (book.extra && !includeExtra)) continue;
     for (const market of book.markets || []) {
       const stamp = market.last_update || book.last_update;
       if (stamp) {
         const age = now - Date.parse(stamp);
-        if (!(age >= -60000 && age <= HOUR)) continue;
+        if (!(age >= -60000 && age <= QUOTE_MAX_AGE)) continue;
       }
       let outcomes;
       if (market.key === 'h2h') {
@@ -144,7 +147,7 @@ function modelProbability(prediction, option, source) {
 function favorites(wallet, matches, { now, models, tune = {}, key = 'favorites' }) {
   const candidates = [];
   for (const match of upcoming(matches, now, WINDOW_HOURS)) {
-    const options = readOptions(match, now).filter(o => o.market === 'h2h');
+    const options = readOptions(match, now, { includeExtra: false }).filter(o => o.market === 'h2h');
     if (!options.length || median(options.map(o => o.margin)) > 0.10) continue;
     for (const side of ['home', 'away']) {
       const quotes = options.filter(o => o.side === side);
@@ -205,7 +208,7 @@ function modelValue(strategy, source, minEdge, markets) {
     for (const match of upcoming(matches, now, WINDOW_HOURS)) {
       const prediction = predict(models, match);
       if (!prediction) continue;
-      const options = readOptions(match, now).filter(o => markets.includes(o.market));
+      const options = readOptions(match, now, { includeExtra: false }).filter(o => markets.includes(o.market));
       for (const option of options) {
         if (option.price < 1.3 || option.price > 5) continue;
         const model = modelProbability(prediction, option, source);
@@ -235,7 +238,7 @@ function slips(wallet, matches, { now, models, key = 'slips', stakeFor }) {
     teamLeague: id => models?.homeLeague.get(id),
     probability(match, legInfo) {
       const prediction = predict(models, match);
-      const options = readOptions(match, now);
+      const options = readOptions(match, now, { includeExtra: false });
       const option = options.find(o => o.bookmaker === legInfo.bookmaker && o.market === legInfo.market &&
         (o.market === 'h2h' ? o.selection === legInfo.selection : o.side === legInfo.side && o.line === legInfo.line));
       if (!option) return NaN;

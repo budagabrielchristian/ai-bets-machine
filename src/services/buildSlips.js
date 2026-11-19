@@ -18,7 +18,8 @@ function collectLegs(matches, now, used, { probability, teamLeague } = {}) {
     if (used.has(match.id) || match.archived || !(kickoff > +now && kickoff <= +now + 72*3600000)) continue;
     if (match.statusName && match.statusName !== 'STATUS_SCHEDULED') continue;
     for (const book of match.bookmakers || []) {
-      if (!book.title || book.title === 'ESPN') continue;
+      // Odds API books (extra) are for the price-comparison AIs only.
+      if (!book.title || book.title === 'ESPN' || book.extra) continue;
       for (const market of book.markets || []) {
         if (!['h2h','total','handicap'].includes(market.key)) continue;
         if (market.outcomes?.length !== (market.key === 'h2h' ? 3 : 2)) continue;

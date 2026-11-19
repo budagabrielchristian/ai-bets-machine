@@ -35,7 +35,9 @@ jobs:
       - name: Restore cached match history
         uses: actions/cache@v6
         with:
-          path: engine-data/history
+          path: |
+            engine-data/history
+            engine-data/odds-cache.json
           key: history-${{ github.run_id }}
           restore-keys: history-
 

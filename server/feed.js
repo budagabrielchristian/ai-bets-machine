@@ -102,24 +102,75 @@ async function fetchFixtures(now = new Date()) {
 }
 
 /* ------------------------------------------------- optional Odds API --- */
+// Free plan: 500 credits a month, 1 credit per sport per call (one region, one market).
+// The cache lives on disk so the online engine (a new process every pass) does not
+// refetch every 15 minutes, and a budget guard stops before the monthly allowance runs out.
 
-let quotes = { at: 0, data: [] };
+const oddsCacheFile = () => path.join(config.dataDir, 'odds-cache.json');
+const thisMonth = () => new Date().toISOString().slice(0, 7);
+
+function readOddsCache() {
+  try { return JSON.parse(fs.readFileSync(oddsCacheFile(), 'utf8')); } catch { return { at: 0, data: [], remaining: null, month: null }; }
+}
+
 async function fetchQuotes() {
   if (!config.oddsApiKey) return [];
-  if (Date.now() - quotes.at < config.oddsApiIntervalMinutes * 60000) return quotes.data;
+  const cached = readOddsCache();
+  if (Date.now() - cached.at < config.oddsApiIntervalMinutes * 60000) return cached.data;
+  if (cached.month === thisMonth() && cached.remaining !== null && cached.remaining < config.oddsApiReserve) {
+    log.warn('Odds API: only ' + cached.remaining + ' requests left this month, pausing until next month.');
+    return cached.data;
+  }
   const data = [];
+  let remaining = cached.month === thisMonth() ? cached.remaining : null;
   for (const sport of config.oddsApiSports) {
     try {
       const url = 'https://api.the-odds-api.com/v4/sports/' + encodeURIComponent(sport) +
-        '/odds/?regions=eu,uk&markets=h2h&oddsFormat=decimal&apiKey=' + encodeURIComponent(config.oddsApiKey);
-      const rows = await getJson(url);
+        '/odds/?regions=eu&markets=h2h&oddsFormat=decimal&apiKey=' + encodeURIComponent(config.oddsApiKey);
+      const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+      const left = Number(res.headers.get('x-requests-remaining'));
+      if (Number.isFinite(left)) remaining = left;
+      if (!res.ok) { log.warn('Odds API ' + sport + ': HTTP ' + res.status); continue; }
+      const rows = await res.json();
       if (Array.isArray(rows)) data.push(...rows.map(r => ({ ...r, sport_key: sport })));
     } catch (error) {
       log.warn('Odds API request failed for ' + sport + ': ' + error.message);
     }
   }
-  quotes = { at: Date.now(), data };
-  return data;
+  const next = { at: Date.now(), data: data.length ? data : cached.data, remaining, month: thisMonth() };
+  try { fs.mkdirSync(config.dataDir, { recursive: true }); fs.writeFileSync(oddsCacheFile(), JSON.stringify(next)); } catch { /* cache is optional */ }
+  log.info('Odds API: ' + data.length + ' events' + (remaining !== null ? ', ' + remaining + ' requests left this month' : ''));
+  return next.data;
+}
+
+const STOP = new Set(['fc', 'afc', 'cf', 'sc', 'ac', 'ssc', 'the', 'club', 'de', 'cd', 'ud', 'rc', 'sv', 'vfb', 'vfl', 'calcio', 'football']);
+const tokens = name => name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/&/g, ' and ')
+  .split(/[^a-z0-9]+/).filter(t => t && !STOP.has(t));
+function sameTeam(a, b) {
+  const x = tokens(a), y = tokens(b);
+  if (x.join('') === y.join('')) return true;
+  return x.some(t => t.length >= 4 && y.some(u => u.startsWith(t) || t.startsWith(u)));
+}
+
+/**
+ * Attach Odds API bookmakers to the matching ESPN fixtures (kickoff within 90
+ * minutes, both team names alike). Their outcome names are rewritten to the
+ * fixture's names, and the books are tagged `extra` so only the price-comparison
+ * AIs use them (the others keep the single-book view they started the test with).
+ */
+export function mergeQuotes(fixtures, quotes) {
+  const out = fixtures.map(f => ({ ...f }));
+  for (const q of quotes) {
+    const t = Date.parse(q.commence_time);
+    const f = out.find(m => Math.abs(Date.parse(m.commence_time) - t) <= 90 * 60000 &&
+      sameTeam(m.home_team, q.home_team) && sameTeam(m.away_team, q.away_team));
+    if (!f) continue;
+    const rename = n => n === q.home_team ? f.home_team : n === q.away_team ? f.away_team : n;
+    const books = (q.bookmakers || []).map(b => ({ title: b.title, last_update: b.last_update, extra: true,
+      markets: (b.markets || []).map(m => ({ ...m, outcomes: (m.outcomes || []).map(o => ({ ...o, name: rename(o.name) })) })) }));
+    f.bookmakers = [...books, ...(f.bookmakers || [])];
+  }
+  return out;
 }
 
 /* ------------------------------------------------------- merged feed --- */
@@ -130,16 +181,9 @@ let pending = null;
 export function getMatches({ force = false, maxAge = 60000 } = {}) {
   if (pending) return pending;
   if (!force && Date.now() - cache.at < maxAge) return Promise.resolve(cache.matches);
-  pending = Promise.all([fetchFixtures(), fetchQuotes()]).then(([fixtures, extra]) => {
-    const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const key = m => [Date.parse(m.commence_time), norm(m.home_team), norm(m.away_team)].join('|');
-    const merged = new Map(fixtures.map(m => [key(m), m]));
-    for (const quote of extra) {
-      const fixture = merged.get(key(quote));
-      if (fixture) merged.set(key(quote), { ...fixture, bookmakers: [...(quote.bookmakers || []), ...fixture.bookmakers] });
-    }
+  pending = Promise.all([fetchFixtures(), fetchQuotes().catch(() => [])]).then(([fixtures, extra]) => {
     cache = { at: Date.now(), error: null,
-      matches: [...merged.values()].sort((a, b) => Date.parse(a.commence_time) - Date.parse(b.commence_time)) };
+      matches: mergeQuotes(fixtures, extra).sort((a, b) => Date.parse(a.commence_time) - Date.parse(b.commence_time)) };
     return cache.matches;
   }).catch(error => {
     cache = { ...cache, error: error.message };

@@ -31,9 +31,11 @@ export const config = {
   trustProxy: env.TRUST_PROXY === 'cloudflare' ? 'cloudflare' : bool(env.TRUST_PROXY, false),
   sessionDays: Number(env.SESSION_DAYS) || 7,
   oddsApiKey: env.ODDS_API_KEY || '',
-  oddsApiSports: (env.ODDS_API_SPORTS || 'soccer_epl').split(',').map(s => s.trim()).filter(Boolean),
-  // The free Odds API plan has 500 requests a month; 120 minutes keeps one league inside it.
-  oddsApiIntervalMinutes: Number(env.ODDS_API_INTERVAL_MINUTES) || 120,
+  // Free plan: 500 requests a month. Two leagues every 3 hours = 2 × 8 × 30 = 480.
+  oddsApiSports: (env.ODDS_API_SPORTS || 'soccer_epl,soccer_spain_la_liga').split(',').map(s => s.trim()).filter(Boolean),
+  oddsApiIntervalMinutes: Number(env.ODDS_API_INTERVAL_MINUTES) || 180,
+  // Stop fetching when fewer requests than this are left in the month.
+  oddsApiReserve: Number(env.ODDS_API_RESERVE) || 20,
   historyDays: Number(env.HISTORY_DAYS) || 365,
   engineEnabled: bool(env.ENGINE_ENABLED, true),
   // Phone notifications via ntfy: install the ntfy app, subscribe to this secret topic.
