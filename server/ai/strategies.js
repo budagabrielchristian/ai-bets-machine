@@ -82,7 +82,7 @@ function walletState(wallet) {
  * matches while the combined odds stay under `maxOdds`. Every ticket has at
  * least 2 matches: a pick left without a partner waits for the next scan.
  */
-function place(wallet, candidates, { strategy, exposure, perScan, stake, now, maxLegs = 4, maxOdds = 10 }) {
+function place(wallet, candidates, { strategy, exposure, perScan, stake, now, maxLegs = 4, maxOdds = 10, minLegs = 2 }) {
   const state = walletState(wallet);
   let capacity = Math.min(state.cash, Math.floor(state.bankroll * exposure) - state.reserved);
   const pool = [];
@@ -106,7 +106,7 @@ function place(wallet, candidates, { strategy, exposure, perScan, stake, now, ma
   for (const g of groups) {
     if (tickets.length >= perScan || capacity < 100) break;
     const start = Math.min(...g.map(c => Date.parse(c.match.commence_time)));
-    if (g.length < 2) continue;
+    if (g.length < minLegs) continue;
     const price = Number(odds(g).toFixed(2));
     const probability = g.reduce((p, c) => p * (c.probability ?? NaN), 1);
     const cents = Math.min(capacity, stake({ probability, price, legs: g }, state.bankroll));
@@ -137,9 +137,11 @@ function modelProbability(prediction, option, source) {
 }
 
 /* ------------------------------------------------------------ the AIs --- */
+// Each AI accepts an optional `tune` object ({ minEdge, legs: { minLegs, maxLegs } })
+// used only by the backtest to compare variants; production never passes it.
 
 /** Baseline: strong favourites at a fair margin, flat 2% stakes. */
-function favorites(wallet, matches, { now, models }) {
+function favorites(wallet, matches, { now, models, tune = {} }) {
   const candidates = [];
   for (const match of upcoming(matches, now, WINDOW_HOURS)) {
     const options = readOptions(match, now).filter(o => o.market === 'h2h');
@@ -161,7 +163,7 @@ function favorites(wallet, matches, { now, models }) {
     }
   }
   // Favourite accumulators: 2-3 favourites per ticket, combined odds up to 4.00.
-  return place(wallet, candidates, { strategy: 'favorites', exposure: 0.10, perScan: 3, now, maxLegs: 4, maxOdds: 6,
+  return place(wallet, candidates, { strategy: 'favorites', exposure: 0.10, perScan: 3, now, maxLegs: 4, maxOdds: 6, ...tune.legs,
     stake: (_, bankroll) => Math.floor(bankroll * 0.02) });
 }
 
@@ -169,7 +171,7 @@ function favorites(wallet, matches, { now, models }) {
  * Line shopping: compare the best available price against the no-vig price
  * of other bookmakers. Pinnacle, the sharpest book, is used alone when present.
  */
-function price(wallet, matches, { now }) {
+function price(wallet, matches, { now, tune = {} }) {
   const candidates = [];
   for (const match of upcoming(matches, now, WINDOW_HOURS)) {
     const options = readOptions(match, now);
@@ -182,13 +184,13 @@ function price(wallet, matches, { now }) {
       const sharp = references.find(isSharp);
       const fair = sharp ? sharp.fair : median(references.map(o => o.fair));
       const edge = fair * option.price - 1;
-      if (edge < 0.03 || option.price > 6) continue;
+      if (edge < (tune.minEdge ?? 0.03) || option.price > 6) continue;
       candidates.push({ match, option, score: edge, probability: fair,
         details: { marketProbability: fair, referenceProbability: fair, estimatedReturn: edge, edge },
         rationale: pct(edge) + ' above ' + (sharp ? 'Pinnacle no-vig price' : 'consensus of ' + references.length + ' books') });
     }
   }
-  return place(wallet, candidates, { strategy: 'price', exposure: 0.25, perScan: 3, now, maxLegs: 4, maxOdds: 12,
+  return place(wallet, candidates, { strategy: 'price', exposure: 0.25, perScan: 3, now, maxLegs: 4, maxOdds: 12, ...tune.legs,
     stake: (t, bankroll) => kellyStake({ probability: t.probability, price: t.price, bankroll, cap: 0.04 }) });
 }
 
@@ -198,7 +200,7 @@ function price(wallet, matches, { now }) {
  * weight) and bet when the blended edge clears the threshold.
  */
 function modelValue(strategy, source, minEdge, markets) {
-  return (wallet, matches, { now, models }) => {
+  return (wallet, matches, { now, models, tune = {} }) => {
     const candidates = [];
     for (const match of upcoming(matches, now, WINDOW_HOURS)) {
       const prediction = predict(models, match);
@@ -214,13 +216,13 @@ function modelValue(strategy, source, minEdge, markets) {
         if (Math.abs(model - market) > MAX_DISAGREEMENT) continue;
         const probability = blend(model, market, 0.5);
         const edge = probability * option.price - 1;
-        if (edge < minEdge) continue;
+        if (edge < (tune.minEdge ?? minEdge)) continue;
         candidates.push({ match, option, score: edge, probability,
           details: { modelProbability: model, marketProbability: market, probability, edge },
           rationale: (source === 'elo' ? 'Elo' : 'Poisson') + ' ' + pct(model) + ' vs market ' + pct(market) + ' → ' + pct(edge) + ' edge' });
       }
     }
-    return place(wallet, candidates, { strategy, exposure: 0.25, perScan: 3, now, maxLegs: 4, maxOdds: 12,
+    return place(wallet, candidates, { strategy, exposure: 0.25, perScan: 3, now, maxLegs: 4, maxOdds: 12, ...tune.legs,
       stake: (t, bankroll) => kellyStake({ probability: t.probability, price: t.price, bankroll, cap: 0.03 }) });
   };
 }

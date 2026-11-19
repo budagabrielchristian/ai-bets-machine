@@ -14,7 +14,8 @@
     "dry-run": "node server/scripts/dry-run.js",
     "test": "node --test \"server/**/*.test.js\" \"src/**/*.test.js\"",
     "local": "vite build && node server/index.js",
-    "notify-test": "node server/scripts/notify-test.js"
+    "notify-test": "node server/scripts/notify-test.js",
+    "backtest": "node server/scripts/backtest.js"
   },
   "dependencies": {
     "framer-motion": "^13.3.0",
