@@ -47,4 +47,5 @@ jobs:
           NTFY_CLICK: https://budagabrielchristian.github.io/ai-bets-machine/
           DATA_DIR: engine-data
           GH_TOKEN: ${{ github.token }}
-        run: bash server/pages/loop.sh
+        # Run from a copy: the loop updates the checkout to the newest code each pass.
+        run: cp server/pages/loop.sh "$RUNNER_TEMP/loop.sh" && bash "$RUNNER_TEMP/loop.sh"

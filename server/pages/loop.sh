@@ -13,6 +13,13 @@ BOT=(-c user.name="github-actions[bot]" -c user.email="41898282+github-actions[b
 while :; do
   started=$SECONDS
   echo "=== Pass at $(date -u +%H:%MZ)"
+  # Pick up new code pushed to main since the last pass (this script runs from a
+  # temporary copy, so updating the checkout is safe).
+  if [ -z "${REMOTE_URL:-}" ] && git fetch -q origin main; then
+    lock=$(git rev-parse HEAD:package-lock.json 2>/dev/null)
+    git reset -q --hard FETCH_HEAD && echo "Code: $(git log -1 --format='%h %s')"
+    [ "$lock" != "$(git rev-parse HEAD:package-lock.json 2>/dev/null)" ] && npm ci --silent
+  fi
   rm -rf vault && mkdir -p vault
   # Load the last saved (encrypted) state, if any.
   if git fetch -q --depth=1 "$REMOTE" data 2>/dev/null; then git archive FETCH_HEAD | tar -x -C vault; fi

@@ -49,6 +49,19 @@ try { matches = await getMatches({ maxAge: 15 * 60000 }); } catch { /* the page 
 fs.mkdirSync(path.dirname(outFile), { recursive: true });
 fs.writeFileSync(outFile, JSON.stringify(encrypt(key, salt, { generatedAt: Date.now(), state: engine.publicState(), matches })));
 
+// Numbers-only status, NOT encrypted: lets anyone (including you) check the engine
+// is alive without the password. No matches, selections or amounts are included.
+const { config } = await import('../config.js');
+const status = { lastPass: new Date().toISOString(), fixtures: matches.length, models: engine.engineStatus().models.status,
+  notifications: Boolean(config.ntfyTopic), feedError: state.engine?.error || null, ais: {} };
+for (const [key, ai] of Object.entries(state.ais)) {
+  const mine = state.tickets.filter(t => (key === 'manual' ? t.source === 'manual' : t.strategy === key) && (t.season || 1) === ai.season);
+  status.ais[key] = { open: mine.filter(t => t.status === 'pending').length, settled: mine.filter(t => ['won', 'lost'].includes(t.status)).length,
+    placedLast24h: mine.filter(t => Date.now() - Date.parse(t.datePlaced) < 864e5).length, enabled: ai.enabled };
+}
+fs.writeFileSync(path.join(vaultDir, 'status.json'), JSON.stringify(status, null, 1));
+console.log('Status: ' + JSON.stringify(status));
+
 const open = state.tickets.filter(t => t.status === 'pending').length;
 console.log('Run complete: ' + state.tickets.length + ' tickets (' + open + ' open), ' + matches.length + ' fixtures, models ' + engine.engineStatus().models.status);
 process.exit(0);

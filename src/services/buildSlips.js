@@ -15,7 +15,7 @@ function collectLegs(matches, now, used, { probability, teamLeague } = {}) {
     // Top five leagues + Champions League, with the team rules (see eligibleCompetition.js).
     if (!slipMatchAllowed(match, teamLeague)) continue;
     const kickoff = Date.parse(match.commence_time);
-    if (used.has(match.id) || match.archived || !(kickoff > +now && kickoff <= +now + 48*3600000)) continue;
+    if (used.has(match.id) || match.archived || !(kickoff > +now && kickoff <= +now + 72*3600000)) continue;
     if (match.statusName && match.statusName !== 'STATUS_SCHEDULED') continue;
     for (const book of match.bookmakers || []) {
       if (!book.title || book.title === 'ESPN') continue;

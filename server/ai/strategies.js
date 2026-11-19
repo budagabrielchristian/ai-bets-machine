@@ -7,6 +7,8 @@ import { marketProbability, predict } from './ratings.js';
 const HOUR = 3600000;
 /** Largest model-vs-market gap (in probability points) the model AIs will act on. */
 export const MAX_DISAGREEMENT = 0.10;
+/** How far ahead the AIs look for matches (72 h reaches the weekend from midweek). */
+export const WINDOW_HOURS = 72;
 
 /* ------------------------------------------------------- market reading --- */
 
@@ -139,15 +141,15 @@ function modelProbability(prediction, option, source) {
 /** Baseline: strong favourites at a fair margin, flat 2% stakes. */
 function favorites(wallet, matches, { now, models }) {
   const candidates = [];
-  for (const match of upcoming(matches, now, 24)) {
+  for (const match of upcoming(matches, now, WINDOW_HOURS)) {
     const options = readOptions(match, now).filter(o => o.market === 'h2h');
-    if (!options.length || median(options.map(o => o.margin)) > 0.08) continue;
+    if (!options.length || median(options.map(o => o.margin)) > 0.10) continue;
     for (const side of ['home', 'away']) {
       const quotes = options.filter(o => o.side === side);
       if (!quotes.length) continue;
       const fair = median(quotes.map(o => o.fair));
       const best = quotes.reduce((a, b) => b.price > a.price ? b : a);
-      if (fair < 0.6 || best.price < 1.2 || best.price > 1.75) continue;
+      if (fair < 0.6 || best.price < 1.2 || best.price > 1.80) continue;
       // Skip favourites that our own models clearly disagree with.
       const prediction = predict(models, match);
       const model = modelProbability(prediction, best, 'poisson');
@@ -169,7 +171,7 @@ function favorites(wallet, matches, { now, models }) {
  */
 function price(wallet, matches, { now }) {
   const candidates = [];
-  for (const match of upcoming(matches, now, 24)) {
+  for (const match of upcoming(matches, now, WINDOW_HOURS)) {
     const options = readOptions(match, now);
     const isSharp = o => /pinnacle/i.test(o.bookmaker);
     for (const option of options) {
@@ -198,7 +200,7 @@ function price(wallet, matches, { now }) {
 function modelValue(strategy, source, minEdge, markets) {
   return (wallet, matches, { now, models }) => {
     const candidates = [];
-    for (const match of upcoming(matches, now, 24)) {
+    for (const match of upcoming(matches, now, WINDOW_HOURS)) {
       const prediction = predict(models, match);
       if (!prediction) continue;
       const options = readOptions(match, now).filter(o => markets.includes(o.market));
@@ -246,6 +248,6 @@ export const AI = {
   favorites: { run: favorites },
   price: { run: price },
   slips: { run: slips },
-  elo: { run: modelValue('elo', 'elo', 0.03, ['h2h']) },
-  poisson: { run: modelValue('poisson', 'poisson', 0.04, ['h2h', 'total', 'handicap']) },
+  elo: { run: modelValue('elo', 'elo', 0.025, ['h2h']) },
+  poisson: { run: modelValue('poisson', 'poisson', 0.025, ['h2h', 'total', 'handicap']) },
 };
