@@ -5,3 +5,9 @@ export function fixtureDay(date = new Date(), offset = 0) {
   shifted.setUTCDate(shifted.getUTCDate() + offset);
   return shifted.toISOString().slice(0, 10);
 }
+
+/** Day number of a test period in calendar days, Bucharest time (the start day is day 1). */
+export function testDay(start, now = Date.now(), days = Infinity) {
+  const elapsed = Math.round((Date.parse(fixtureDay(now)) - Date.parse(fixtureDay(start))) / 86400000);
+  return Math.min(days, Math.max(1, elapsed + 1));
+}

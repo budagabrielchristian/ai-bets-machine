@@ -4,6 +4,7 @@ import { useBetContext } from '../context/BetContext';
 import { AIS, MANUAL, STARTING_BALANCE } from '../services/aiCatalog';
 import { aiStats, dailyProfit } from '../services/aiStats';
 import { STATIC } from '../services/api';
+import { testDay } from '../services/fixtureDay';
 import { ArrowUpRight, Minus, TrendingDown, TrendingUp } from 'lucide-react';
 import { CountUp, Reveal } from './Reveal';
 
@@ -90,10 +91,9 @@ function DailyGrid({ rows }) {
 
 /** Progress of the fixed-length test period (online engine only). */
 function TestBanner({ test }) {
-  const DAY = 86400000;
   const fmt = ms => new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
   const now = Date.now();
-  const day = Math.min(test.days, Math.max(1, Math.ceil((now - test.start) / DAY)));
+  const day = testDay(test.start, now, test.days);
   const done = now >= test.end;
   return <div className="test-banner" role="status">
     <div><strong>{done ? (test.finished ? 'Test finished: final results' : 'Test over: waiting for the last tickets to settle') : 'Test period · day ' + day + ' of ' + test.days}</strong>

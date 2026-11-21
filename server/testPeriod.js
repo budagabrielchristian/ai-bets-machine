@@ -10,6 +10,7 @@ import { aiStats } from '../src/services/aiStats.js';
 import { config } from './config.js';
 import { log } from './log.js';
 import { sendReport } from './notify.js';
+import { testDay } from '../src/services/fixtureDay.js';
 
 const DAY = 86400000;
 
@@ -56,8 +57,8 @@ export async function testTick({ state, now, newSeason, walletTickets }) {
   if (now < test.end) {
     if (now - test.lastWeekly >= 7 * DAY) {
       test.lastWeekly = now;
-      const day = Math.floor((now - test.start) / DAY);
-      await sendReport('Week ' + Math.round(day / 7) + ' of the test (day ' + day + '/' + test.days + ')',
+      const day = testDay(test.start, now, test.days);
+      await sendReport('Week ' + Math.round((now - test.start) / (7 * DAY)) + ' of the test (day ' + day + '/' + test.days + ')',
         summaryLines(state, walletTickets).join('\n'), 'bar_chart');
     }
     return true;

@@ -51,3 +51,12 @@ test('summary ranks accounts by profit', () => {
   assert.match(lines.at(-1), /^\d+\. Favorites: −4\.00 RON/, 'biggest loss last');
   assert.equal(lines.length, Object.keys(AIS).length, 'every AI; manual account hidden when it has no tickets');
 });
+
+test('the test day counts calendar days in Bucharest time', async () => {
+  const { testDay } = await import('../src/services/fixtureDay.js');
+  const start = Date.parse('2026-11-19T12:00:00Z');
+  assert.equal(testDay(start, Date.parse('2026-11-19T21:00:00Z'), 30), 1);
+  assert.equal(testDay(start, Date.parse('2026-11-19T22:30:00Z'), 30), 2); // 00:30 in Bucharest
+  assert.equal(testDay(start, Date.parse('2026-11-21T10:30:00Z'), 30), 3);
+  assert.equal(testDay(start, Date.parse('2026-12-25T10:00:00Z'), 30), 30);
+});
