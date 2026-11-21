@@ -26,6 +26,17 @@ export async function sealMessage(key, value) {
   return JSON.stringify({ v: 1, iv: b64(iv), data: b64(data) });
 }
 
+/**
+ * The engine's private ntfy inbox for this key: "abm-" + the first 32 hex
+ * characters of HMAC-SHA256(key, "copy-inbox"). Same as inboxTopic in server/inbox.js.
+ */
+export async function inboxTopic(key) {
+  const raw = await crypto.subtle.exportKey('raw', key);
+  const mac = await crypto.subtle.importKey('raw', raw, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', mac, new TextEncoder().encode('copy-inbox')));
+  return 'abm-' + [...sig].map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
+}
+
 /** Keep the derived key for this browser tab only, so a reload does not ask again. */
 export async function rememberKey(key, salt) {
   const raw = new Uint8Array(await crypto.subtle.exportKey('raw', key));
@@ -36,7 +47,7 @@ export async function recallKey(salt) {
   try {
     const saved = JSON.parse(sessionStorage.getItem(KEY_STORE) || 'null');
     if (!saved || saved.salt !== salt) return null;
-    return crypto.subtle.importKey('raw', bytes(saved.key), 'AES-GCM', false, ['encrypt', 'decrypt']);
+    return crypto.subtle.importKey('raw', bytes(saved.key), 'AES-GCM', true, ['encrypt', 'decrypt']);
   } catch { return null; }
 }
 

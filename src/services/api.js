@@ -3,7 +3,7 @@
 //
 // On GitHub Pages (built with VITE_STATIC=1) there is no server: the page reads
 // encrypted data published by GitHub Actions and is view-only.
-import { decrypt, forgetKey, sealMessage } from './vault';
+import { decrypt, forgetKey, inboxTopic, sealMessage } from './vault';
 import { parseSlipText } from './copySlip';
 
 export const STATIC = import.meta.env.VITE_STATIC === '1';
@@ -59,13 +59,14 @@ async function staticPost(path, body = {}) {
     return { ...parseSlipText(String(body.text || ''), staticData.matches || []), online: true };
   }
   if (path === '/api/tickets/copy') {
-    if (!staticData.inbox) throw new Error('The online engine has not published its inbox yet. Try again after its next pass (up to 15 minutes).');
+    // The inbox address comes from the key itself, so it works before the engine has published anything.
+    const inbox = staticData.inbox || await inboxTopic(staticKey);
     const request = { id: crypto.randomUUID(), at: Date.now(), text: String(body.text || ''), stake: body.stake, bookmaker: body.bookmaker,
       skipProblems: Boolean(body.skipProblems), payout: body.payout };
     const sealed = await sealMessage(staticKey, request);
     if (sealed.length > INBOX_LIMIT) throw new Error('This ticket is too long to send online. Copy fewer lines (the matches and the amounts are enough).');
     let response;
-    try { response = await fetch('https://ntfy.sh/' + staticData.inbox, { method: 'POST', body: sealed }); }
+    try { response = await fetch('https://ntfy.sh/' + inbox, { method: 'POST', body: sealed }); }
     catch { throw new Error('Could not reach the inbox (ntfy.sh). Check the connection and try again.'); }
     if (!response.ok) throw new Error('The inbox refused the ticket (HTTP ' + response.status + '). Try again in a minute.');
     return { queued: true, id: request.id };

@@ -17,6 +17,18 @@ test('the topic is private to the key, and messages round-trip', () => {
   assert.throws(() => openMessage(crypto.randomBytes(32), sealMessage(key, value)));
 });
 
+test('the page and the engine derive the same inbox, and the engine opens what the page seals', async () => {
+  const vault = await import('./pages/vault.js');
+  const page = await import('../src/services/vault.js');
+  const salt = vault.newSalt();
+  const password = 'a-test-password-for-inbox';
+  const serverKey = vault.deriveKey(password, salt);
+  const browserKey = await page.deriveKey(password, { salt, iterations: vault.ITERATIONS });
+  assert.equal(await page.inboxTopic(browserKey), inboxTopic(serverKey));
+  const value = { id: 'x', at: NOW, text: 'Arsenal - Chelsea' };
+  assert.deepEqual(openMessage(serverKey, await page.sealMessage(browserKey, value)), value);
+});
+
 test('saves each sealed ticket once and ignores foreign, replayed and old messages', async () => {
   const state = {};
   const placed = [], notes = [];
