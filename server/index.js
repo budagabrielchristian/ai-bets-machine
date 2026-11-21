@@ -100,7 +100,7 @@ function loginPage(res, { error = '', status = 200 } = {}) {
   const token = crypto.randomBytes(24).toString('base64url');
   const setup = !hasUsers();
   const body = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sign in · AI Bets Machine</title><meta name="robots" content="noindex,nofollow"><link rel="stylesheet" href="/login.css"></head><body><main>
+<title>Sign in · AI Bets Machine</title><link rel="icon" type="image/svg+xml" href="/favicon.svg"><meta name="theme-color" content="#131313"><meta name="robots" content="noindex,nofollow"><link rel="stylesheet" href="/login.css"></head><body><main>
 <h1>The match ledger.</h1><p>Private dashboard. Sign in to continue.</p>
 ${error ? `<div class="error" role="alert">${escapeHtml(error)}</div>` : ''}
 ${setup ? `<div class="error" role="alert">No account exists yet. On the server, run <b>npm run create-user -- yourname</b>, then reload this page.</div>` : ''}
@@ -209,7 +209,7 @@ async function api(req, res, session, url) {
 /* -------------------------------------------------------------- static --- */
 
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
-  '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.webp': 'image/webp' };
+  '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.webp': 'image/webp', '.webmanifest': 'application/manifest+json' };
 
 function serveStatic(req, res, pathname) {
   let file;
@@ -229,6 +229,9 @@ function serveStatic(req, res, pathname) {
   });
 }
 
+const PUBLIC_FILES = new Set(['/favicon.svg', '/favicon-32.png', '/apple-touch-icon.png', '/icon-192.png', '/icon-512.png',
+  '/icon-maskable-512.png', '/manifest.webmanifest']);
+
 /* -------------------------------------------------------------- server --- */
 
 const server = http.createServer(async (req, res) => {
@@ -237,6 +240,8 @@ const server = http.createServer(async (req, res) => {
     if (rateLimited(ip)) return send(res, 429, 'Too many requests', { 'Retry-After': '60', 'Content-Type': 'text/plain' });
     const url = new URL(req.url, 'http://localhost');
     if (url.pathname === '/healthz') return json(res, 200, { ok: true });
+    // App icons and the install manifest hold nothing private: serve them before sign-in too.
+    if (PUBLIC_FILES.has(url.pathname)) return serveStatic(req, res, url.pathname);
     if (url.pathname === '/login.css') return send(res, 200, LOGIN_CSS, { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': 'no-store' });
     if (url.pathname === '/login') {
       if (req.method === 'POST') return await handleLogin(req, res, ip);
