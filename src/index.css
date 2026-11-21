@@ -351,3 +351,26 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
   [data-inview] :is(.tips li, .ideas li):nth-child(n+4) {transition-delay:.21s}
 }
 .analysis .stat-tiles strong {white-space:nowrap;font-size:1.35rem}
+
+/* ---- Copy a Betano / Superbet ticket (My bets) ---- */
+.copy-ticket {margin:0 0 3rem;padding:1.5rem;border:1px solid #3a3a38;background:#181818;border-radius:.6rem}
+.copy-ticket h2 {font:400 1.9rem Georgia,serif;letter-spacing:-.04em;margin:0 0 .4rem}
+.copy-ticket .muted {color:#999;font-size:.85rem;margin:0 0 1rem;max-width:60ch}
+.copy-ticket textarea {display:block;width:100%;min-height:9rem;padding:.8rem;background:#202020;color:#eee;border:1px solid #474747;border-radius:.45rem;font:.85rem/1.45 ui-monospace,Consolas,monospace;resize:vertical}
+.copy-row {display:flex;flex-wrap:wrap;align-items:flex-end;gap:1rem;margin-top:1rem}
+.copy-row label {display:flex;flex-direction:column;gap:.35rem;font-size:.75rem;color:#aaa}
+.copy-row select,.copy-row input {background:#242424;color:#eee;padding:.6rem;border:1px solid #444;border-radius:.4rem;min-width:8rem;font-size:.9rem}
+.copy-ticket button {display:inline-flex;align-items:center;gap:.45rem;padding:.65rem 1.1rem;border-radius:2rem;border:1px solid #5a5a57;background:#232322;color:#eee;font-weight:600;font-size:.85rem}
+.copy-ticket button:enabled:hover {border-color:#8a8a86;transform:translateY(-1px)}
+.copy-ticket button:disabled {opacity:.45}
+.copy-ticket .copy-save {background:#e7e5e0;color:#181818;border-color:#e7e5e0;margin-top:.5rem}
+.copy-preview {margin-top:1.2rem}
+.copy-preview .stats-table tbody th span {display:block;color:#888;font-weight:400;font-size:.72rem;margin-top:.15rem}
+.copy-preview .stats-table :is(td,th):nth-child(2) {white-space:normal;text-align:left}
+.copy-problem {display:flex;align-items:center;gap:.4rem;color:#f3c4c4;font-size:.85rem;margin:.6rem 0}
+.copy-problem svg {flex:none}
+.copy-saved {color:#cfe9d6;font-size:.9rem;margin:.8rem 0 0}
+@media (max-width:640px) {.copy-ticket {padding:1rem} .copy-row > * {flex:1 1 100%}}
+.copy-preview .stats-table td small {display:block;color:#888;font-size:.7rem;font-weight:400}
+.copy-skip {display:flex;align-items:flex-start;gap:.55rem;margin:.9rem 0 .4rem;font-size:.85rem;color:#ccc;max-width:60ch;cursor:pointer}
+.copy-skip input {margin-top:.2rem;accent-color:#e7e5e0}

@@ -42,10 +42,18 @@ export default function TicketDetail() {
     clv: l.closingPrice > 1 ? l.price / l.closingPrice - 1 : NaN,
     fairOdds: Number.isFinite(l.marketProbability) ? 1 / l.marketProbability : NaN }));
   const odds = Number(t.totalOdds);
-  const product = legs.reduce((x, l) => x * l.price, 1);
-  const pWin = legs.reduce((x, l) => x * l.p, 1);
+  // A copied Bet Builder is priced as one bet: its picks are on the same match,
+  // so it counts once, at its own odds and the chance those odds imply.
+  const units = [];
+  for (const l of legs) {
+    if (!l.builderId) { units.push({ price: l.price, p: l.p }); continue; }
+    if (!units.some(u => u.builderId === l.builderId)) units.push({ builderId: l.builderId, price: l.builderPrice, p: 1 / l.builderPrice });
+  }
+  const product = units.reduce((x, u) => x * u.price, 1);
+  const pWin = units.reduce((x, u) => x * u.p, 1);
+  const matches = new Set(t.selections.map(l => l.matchId)).size;
   const ev = pWin * odds - 1;
-  const fairTicketOdds = legs.every(l => Number.isFinite(l.fairOdds)) ? legs.reduce((x, l) => x * l.fairOdds, 1) : NaN;
+  const fairTicketOdds = !units.some(u => u.builderId) && legs.every(l => Number.isFinite(l.fairOdds)) ? legs.reduce((x, l) => x * l.fairOdds, 1) : NaN;
   const builtInMargin = Number.isFinite(fairTicketOdds) ? fairTicketOdds / odds - 1 : NaN;
   const kelly = Math.max(0, (pWin * odds - 1) / (odds - 1));
   const rule = STAKING[t.strategy];
@@ -57,7 +65,7 @@ export default function TicketDetail() {
     <Link to={t.source === 'manual' ? '/my-bets' : '/auto-pilot?strategy=' + t.strategy} className="back"><ArrowLeft size={15} aria-hidden="true" /> {who} tickets</Link>
     <Reveal as="header" className="detail-head">
       <p className="eyebrow">{who}{t.season ? ', season ' + t.season : ''}. Placed {when(t.datePlaced)}{t.settledAt ? ', settled ' + when(t.settledAt) : ''}</p>
-      <h1>{t.selections.length > 1 ? t.selections.length + '-match ticket' : 'Single bet'} <em>@ {odds.toFixed(2)}</em></h1>
+      <h1>{matches > 1 ? matches + '-match ticket' : t.selections.length > 1 ? 'Bet Builder' : 'Single bet'} <em>@ {odds.toFixed(2)}</em></h1>
     </Reveal>
 
     <Reveal as="div" className="stat-tiles" delay={0.08}>
@@ -77,9 +85,11 @@ export default function TicketDetail() {
           <th scope="col" title="Last price before kickoff">Closing</th><th scope="col" title="Price ÷ closing price − 1">CLV</th><th scope="col">Final</th></tr></thead>
         <tbody>{legs.map((l, i) => <tr key={i}>
           <th scope="row"><Link to={'/match/' + l.matchId}>{l.matchTitle}</Link><small>{l.competition}{l.matchDate ? ' · ' + when(l.matchDate) : ''}</small></th>
-          <td>{l.selection}<small>{l.bookmaker}</small></td><td>{Number(l.price).toFixed(2)}</td><td>{pct(1 / l.price)}</td>
+          <td>{l.selection}<small>{l.bookmaker}{l.builderId ? ' · Bet Builder' : ''}</small></td>
+          <td>{l.builderId ? (legs.findIndex(x => x.builderId === l.builderId) === i ? Number(l.builderPrice).toFixed(2) : '+') : Number(l.price).toFixed(2)}</td>
+          <td>{l.builderId ? '-' : pct(1 / l.price)}</td>
           <td>{pct(l.marketProbability ?? l.referenceProbability)}</td><td>{pct(l.modelProbability)}</td>
-          <td title={l.source}>{pct(l.p)}</td><td className={cls(l.p * l.price - 1)}>{signed(l.p * l.price - 1)}</td>
+          <td title={l.source}>{l.builderId ? '-' : pct(l.p)}</td><td className={l.builderId ? '' : cls(l.p * l.price - 1)}>{l.builderId ? '-' : signed(l.p * l.price - 1)}</td>
           <td>{l.closingPrice ? Number(l.closingPrice).toFixed(2) : '-'}</td><td className={cls(l.clv)}>{signed(l.clv)}</td>
           <td className={l.outcome === 'won' ? 'pl-up' : l.outcome === 'lost' ? 'pl-down' : ''}>{l.result ? String(l.result).replace('–', '-') + (l.outcome ? ', ' + l.outcome : '') : '-'}</td>
         </tr>)}</tbody>
@@ -89,9 +99,9 @@ export default function TicketDetail() {
     <Reveal className="maths">
       <h2>The maths</h2>
       <dl>
-        <div><dt>Combined odds</dt><dd>{legs.map(l => Number(l.price).toFixed(2)).join(' × ')} = <b>{product.toFixed(2)}</b>{Math.abs(product - odds) > 0.01 ? ' (same-match builder priced at ' + odds.toFixed(2) + ')' : ''}</dd></div>
+        <div><dt>Combined odds</dt><dd>{units.map(u => Number(u.price).toFixed(2)).join(' × ')} = <b>{product.toFixed(2)}</b>{Math.abs(product - odds) > 0.01 ? ' (same-match builder priced at ' + odds.toFixed(2) + ')' : ''}</dd></div>
         <div><dt>Chance the bookmaker's price implies</dt><dd>1 ÷ {odds.toFixed(2)} = <b>{pct(1 / odds)}</b></dd></div>
-        <div><dt>Chance the AI estimated</dt><dd>{legs.map(l => pct(l.p)).join(' × ')} = <b>{pct(pWin, 2)}</b><small>Legs are on different matches, so their chances multiply.</small></dd></div>
+        <div><dt>Chance the AI estimated</dt><dd>{units.map(u => pct(u.p)).join(' × ')} = <b>{pct(pWin, 2)}</b><small>Legs are on different matches, so their chances multiply.{units.some(u => u.builderId) ? ' Each Bet Builder counts once, at the chance its odds imply.' : ''}</small></dd></div>
         <div><dt>Expected value</dt><dd>{pct(pWin, 2)} × {odds.toFixed(2)} − 1 = <b className={cls(ev)}>{signed(ev)}</b><small>Average result per 1 RON if this exact bet were repeated many times: {ron(ev * t.stake)} on this stake.</small></dd></div>
         {Number.isFinite(builtInMargin) && <div><dt>Bookmaker margin on the ticket</dt><dd>fair odds {fairTicketOdds.toFixed(2)} vs offered {odds.toFixed(2)} → <b className="pl-down">{signed(-builtInMargin)}</b><small>Each extra match multiplies the margin, which is why combined tickets are expensive.</small></dd></div>}
         <div><dt>Kelly stake</dt><dd>(p × odds − 1) ÷ (odds − 1) = ({pct(pWin, 2)} × {odds.toFixed(2)} − 1) ÷ {(odds - 1).toFixed(2)} = <b>{pct(kelly, 2)}</b> of the bankroll

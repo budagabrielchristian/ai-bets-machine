@@ -168,6 +168,12 @@ async function api(req, res, session, url) {
     return json(res, 200, { ok: true }, { 'Set-Cookie': sessionCookie('', 0) });
   }
   if (route === 'POST /api/tickets') return json(res, 201, { ticket: await engine.placeManual(body) });
+  if (route === 'POST /api/tickets/copy/preview') return json(res, 200, await engine.previewCopy(body));
+  if (route === 'POST /api/tickets/copy') {
+    const ticket = await engine.placeCopy(body);
+    log.audit('copy-ticket user=' + session.user + ' from=' + ticket.copiedFrom + ' legs=' + ticket.selections.length);
+    return json(res, 201, { ticket });
+  }
   if (route === 'POST /api/matches/refresh') {
     try { await getMatches({ maxAge: 10000 }); } catch { /* reported in state */ }
     return json(res, 200, { ok: true });

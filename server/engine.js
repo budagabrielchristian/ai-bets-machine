@@ -2,10 +2,11 @@
 import { AIS, STARTING_BALANCE } from '../src/services/aiCatalog.js';
 import { builderPrice, grade } from '../src/services/practice.js';
 import { jointMarket } from '../src/services/jointMarket.js';
+import { parseSlipText } from '../src/services/copySlip.js';
 import { AI, readOptions } from './ai/strategies.js';
 import { ELO, buildModels, marketProbability, predict } from './ai/ratings.js';
 import { config } from './config.js';
-import { feedStatus, findPrice, getHistory, getMatches, getResults } from './feed.js';
+import { feedStatus, findPrice, getCopyFixtures, getHistory, getMatches, getResults } from './feed.js';
 import { log } from './log.js';
 import { notifyChanges } from './notify.js';
 import { testTick } from './testPeriod.js';
@@ -295,6 +296,70 @@ export async function placeManual({ stake, selections }) {
 }
 
 export class UserError extends Error {}
+
+/* ----------------------------------- copy a Betano / Superbet ticket --- */
+
+const COPY_BOOKS = ['Betano', 'Superbet'];
+
+/** The feed's own price for the same pick (for comparison only). */
+function feedOffer(match, leg) {
+  for (const b of [...(match.bookmakers || [])].sort((x, y) => Number(Boolean(x.extra)) - Number(Boolean(y.extra)))) {
+    const price = findPrice(match, { ...leg, bookmaker: b.title });
+    if (price) return { bookmaker: b.title, price };
+  }
+  return null;
+}
+
+/** Read pasted ticket text. Nothing is saved. */
+export async function previewCopy({ text }) {
+  if (typeof text !== 'string' || !text.trim()) throw new UserError('Paste the ticket text first.');
+  const matches = await getCopyFixtures();
+  const parsed = parseSlipText(text, matches);
+  const byId = new Map(matches.map(m => [m.id, m]));
+  for (const leg of parsed.legs) {
+    const offer = !leg.problem && feedOffer(byId.get(leg.matchId), leg);
+    if (offer) { leg.feedPrice = offer.price; leg.feedBookmaker = offer.bookmaker; }
+  }
+  return parsed;
+}
+
+/**
+ * Save a copied ticket as a manual practice bet. The server reads the text
+ * again with its own fixtures; the odds are the ones written on the ticket.
+ */
+export async function placeCopy({ text, stake, bookmaker, skipProblems = false }) {
+  const parsed = await previewCopy({ text });
+  const book = COPY_BOOKS.includes(bookmaker) ? bookmaker : parsed.bookmaker;
+  if (!book) throw new UserError('Choose whether the ticket is from Betano or Superbet.');
+  const bad = parsed.legs.find(l => l.problem);
+  // Leaving matches out is only done when asked for, and recorded on the ticket.
+  if (!skipProblems && parsed.warnings.length) throw new UserError(parsed.warnings[0]);
+  if (!skipProblems && bad) throw new UserError(bad.matchTitle + ': ' + bad.problem + '.');
+  const kept = parsed.legs.filter(l => !l.problem);
+  if (!kept.length) throw new UserError('None of the matches on this ticket can be copied.');
+  const leftOut = new Set(parsed.legs.filter(l => l.problem).map(l => l.matchId)).size + parsed.warnings.filter(w => /^Not found/.test(w)).length;
+  if (new Set(kept.map(l => l.matchId)).size > 20) throw new UserError('A copied ticket can have at most 20 matches.');
+  const amount = Math.round(Number(stake ?? parsed.stake) * 100) / 100;
+  if (!(amount >= 0.01 && amount <= 100000)) throw new UserError('Enter a stake between 0.01 and 100,000.');
+  const matches = await getCopyFixtures();
+  const byId = new Map(matches.map(m => [m.id, m]));
+  const legs = kept.map(l => {
+    const match = byId.get(l.matchId);
+    const base = { matchId: l.matchId, matchDate: l.matchDate, matchTitle: l.matchTitle, teams: l.teams, competition: l.competition,
+      bookmaker: book, market: l.market, selection: l.selection, side: l.market === 'h2h' ? undefined : l.side,
+      line: l.market === 'h2h' ? undefined : l.line, price: l.price, openingPrice: l.price, feedPrice: l.feedPrice,
+      builderId: l.builderId, builderPrice: l.builderPrice };
+    const numbers = l.feedBookmaker ? legNumbers(match, { ...base, bookmaker: l.feedBookmaker }) : {};
+    return { ...base, ...numbers };
+  });
+  const odds = parsed.totalOdds;
+  const ticket = { id: crypto.randomUUID(), source: 'manual', copiedFrom: book, leftOut: leftOut || undefined, status: 'pending', season: state.ais.manual.season,
+    datePlaced: new Date().toISOString(), stake: amount, totalOdds: odds, currency: 'RON',
+    potentialReturn: Number((amount * odds).toFixed(2)), selections: legs };
+  state.tickets.unshift(ticket);
+  save();
+  return ticket;
+}
 
 /**
  * For the bet analysis: the market's fair chance (margin removed) and the

@@ -8,6 +8,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useBetContext } from '../context/BetContext';
 import { Archive, ArrowUpRight, Clock, Target } from 'lucide-react';
 import BetAnalysis from '../components/BetAnalysis';
+import CopyTicket from '../components/CopyTicket';
+import { STATIC } from '../services/api';
 
 const MyBets = ({ autoOnly = false }) => {
   const { placedBets: history, currency,account } = useBetContext();
@@ -43,7 +45,7 @@ const MyBets = ({ autoOnly = false }) => {
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
           <div>
             <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-2 tracking-tight">{autoOnly ? 'AI tickets' : 'My Bets'}</h1>
-            <p className="text-gray-400">{autoOnly ? 'Practice tickets each AI placed from its own wallet, with the reason it bet.' : 'Tickets you placed from your bet slip.'}</p>
+            <p className="text-gray-400">{autoOnly ? 'Practice tickets each AI placed from its own wallet, with the reason it bet.' : 'Tickets you placed from your bet slip or copied from Betano and Superbet.'}</p>
           </div>
         </div>
 
@@ -64,6 +66,7 @@ const MyBets = ({ autoOnly = false }) => {
           <label className="block mt-6">Ticket status <select className="bg-neutral-800 p-2 rounded" value={status} onChange={e=>setStatus(e.target.value)}>
             {['all','pending','won','lost','void'].map(value=><option key={value} value={value}>{value === 'void' ? 'Refunded' : value}</option>)}</select></label>
         </section>}
+        {!autoOnly && !STATIC && <CopyTicket />}
         {!autoOnly && <BetAnalysis tickets={manualBets} />}
         {!autoOnly && <h2 className="tickets-heading">Your tickets</h2>}
         {visible.length === 0 ? (
@@ -132,13 +135,17 @@ const MyBets = ({ autoOnly = false }) => {
                               Number.isFinite(sel.value) ? 'leg value ' + ((sel.value - 1) >= 0 ? '+' : '') + ((sel.value - 1) * 100).toFixed(1) + '%' : null,
                               sel.closingPrice ? (Date.parse(sel.matchDate) > Date.now() ? 'price now ' : 'closing price ') + sel.closingPrice + ' (CLV ' + ((sel.price / sel.closingPrice - 1) >= 0 ? '+' : '') + ((sel.price / sel.closingPrice - 1) * 100).toFixed(1) + '%)' : null,
                               receipt.imported ? 'imported' : null,
+                              receipt.copiedFrom ? 'copied ticket' + (idx === 0 && receipt.leftOut ? ' (' + receipt.leftOut + ' left out)' : '') + (sel.feedPrice ? ' · feed odds ' + Number(sel.feedPrice).toFixed(2) : '') : null,
+                              sel.builderId ? 'Bet Builder ' + Number(sel.builderPrice).toFixed(2) : null,
                             ].filter(Boolean).join(' · ')}</div>
                             <div className="font-bold text-white flex items-center">
                               <Target className="w-4 h-4 mr-2 text-accent-green" /> {sel.selection}
                             </div>
                           </div>
                           <div className="text-accent-green font-bold bg-white/5 px-3 py-1 rounded-lg">
-                            {sel.price}
+                            {sel.builderId
+                              ? (receipt.selections.findIndex(s => s.builderId === sel.builderId) === idx ? Number(sel.builderPrice).toFixed(2) : '+')
+                              : sel.price}
                           </div>
                         </div>
                       ))}

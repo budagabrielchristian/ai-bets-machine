@@ -66,11 +66,11 @@ function parseEvent(event, leagueId) {
 
 /* ------------------------------------------------------------ fixtures --- */
 
-async function fetchFixtures(now = new Date()) {
-  const days = [-1, 0, 1, 2].map(offset => fixtureDay(now, offset).replaceAll('-', ''));
+async function fetchFixtures(now = new Date(), offsets = [-1, 0, 1, 2], europeanOffsets = [0, 1]) {
+  const days = offsets.map(offset => fixtureDay(now, offset).replaceAll('-', ''));
   const feeds = days.map(day => ({ league: 'all', day }));
   for (const league of ['uefa.champions', 'uefa.europa', 'uefa.europa.conf']) {
-    for (const day of days.slice(1, 3)) feeds.push({ league, day });
+    for (const offset of europeanOffsets) feeds.push({ league, day: fixtureDay(now, offset).replaceAll('-', '') });
   }
   const batches = await Promise.allSettled(feeds.map(async ({ league, day }) => {
     const data = await getJson(scoreboard(league, day));
@@ -190,6 +190,23 @@ export function getMatches({ force = false, maxAge = 60000 } = {}) {
     throw error;
   }).finally(() => { pending = null; });
   return pending;
+}
+
+/**
+ * For copying a betslip: the normal feed plus fixtures up to ten days ahead
+ * (tickets often hold later games, e.g. next week's Champions League).
+ * Fetched only when someone copies a ticket, and cached for 15 minutes.
+ */
+let later = { at: 0, matches: [] };
+export async function getCopyFixtures() {
+  const near = await getMatches({ maxAge: 2 * 60000 });
+  if (Date.now() - later.at > 15 * 60000) {
+    const offsets = [3, 4, 5, 6, 7, 8, 9, 10];
+    try { later = { at: Date.now(), matches: await fetchFixtures(new Date(), offsets, offsets) }; }
+    catch (error) { log.warn('Later fixtures unavailable: ' + error.message); }
+  }
+  const ids = new Set(near.map(m => m.id));
+  return [...near, ...later.matches.filter(m => !ids.has(m.id))];
 }
 
 export const feedStatus = () => ({ updatedAt: cache.at || null, error: cache.error, count: cache.matches.length });
