@@ -1,0 +1,71 @@
+{
+ "lastPass": "2026-11-21T13:59:39.070Z",
+ "fixtures": 455,
+ "models": "ready",
+ "notifications": true,
+ "test": {
+  "id": "month-1",
+  "days": 30,
+  "start": 1795089492810,
+  "end": 1797681492810,
+  "lastWeekly": 1795089492810,
+  "finished": false
+ },
+ "feedError": null,
+ "ais": {
+  "favorites": {
+   "open": 5,
+   "settled": 4,
+   "placedLast24h": 2,
+   "enabled": true
+  },
+  "price": {
+   "open": 3,
+   "settled": 0,
+   "placedLast24h": 2,
+   "enabled": true
+  },
+  "slips": {
+   "open": 4,
+   "settled": 2,
+   "placedLast24h": 0,
+   "enabled": true
+  },
+  "elo": {
+   "open": 25,
+   "settled": 18,
+   "placedLast24h": 14,
+   "enabled": true
+  },
+  "poisson": {
+   "open": 38,
+   "settled": 17,
+   "placedLast24h": 20,
+   "enabled": true
+  },
+  "manual": {
+   "open": 3,
+   "settled": 0,
+   "placedLast24h": 3,
+   "enabled": true
+  },
+  "favSingles": {
+   "open": 5,
+   "settled": 0,
+   "placedLast24h": 0,
+   "enabled": true
+  },
+  "sharpSingles": {
+   "open": 19,
+   "settled": 1,
+   "placedLast24h": 4,
+   "enabled": true
+  },
+  "slipsScaled": {
+   "open": 6,
+   "settled": 2,
+   "placedLast24h": 2,
+   "enabled": true
+  }
+ }
+}
