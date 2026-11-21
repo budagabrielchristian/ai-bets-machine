@@ -56,6 +56,7 @@ export function publicState() {
       [key, { season: v.season, deposit: v.deposit, enabled: v.enabled, lastScan: v.lastScan, note: v.note }])),
     tickets: state.tickets.map(({ selections, ...t }) => ({ ...t, selections: selections.map(({ jointModel, ...s }) => s) })),
     settings: state.settings,
+    copyLog: state.copyLog || [],
     engine: engineStatus(),
     feed: feedStatus(),
     oddsApi: Boolean(config.oddsApiKey),

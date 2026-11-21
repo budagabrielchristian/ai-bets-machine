@@ -55,6 +55,6 @@ export default function Gate({ children }) {
       <label>Password<input type="password" autoComplete="current-password" autoFocus required value={password} onChange={e => setPassword(e.target.value)} /></label>
       <button type="submit" disabled={status === 'working'}>{status === 'working' ? 'Unlocking…' : 'Unlock'}</button>
     </form>}
-    <small>Nothing is sent anywhere: decryption happens in this browser.</small>
+    <small>Your password never leaves this browser: decryption happens here.</small>
   </main>;
 }

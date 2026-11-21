@@ -3,7 +3,8 @@
 //
 // On GitHub Pages (built with VITE_STATIC=1) there is no server: the page reads
 // encrypted data published by GitHub Actions and is view-only.
-import { decrypt, forgetKey } from './vault';
+import { decrypt, forgetKey, sealMessage } from './vault';
+import { parseSlipText } from './copySlip';
 
 export const STATIC = import.meta.env.VITE_STATIC === '1';
 export const READ_ONLY = 'This online page is view-only. Place manual bets, pause AIs or start seasons in the local app.';
@@ -46,8 +47,29 @@ async function staticGet(path) {
   throw new Error('Not available online');
 }
 
-async function staticPost(path) {
+// ntfy keeps messages up to 4096 characters; longer ones would become attachments.
+const INBOX_LIMIT = 4000;
+
+async function staticPost(path, body = {}) {
   if (path === '/api/logout') return lock();
+  // Copying a ticket online: read it here against the published fixtures, then
+  // send it encrypted to the engine's inbox; the next engine pass saves it.
+  if (path === '/api/tickets/copy/preview') {
+    await reloadStatic();
+    return { ...parseSlipText(String(body.text || ''), staticData.matches || []), online: true };
+  }
+  if (path === '/api/tickets/copy') {
+    if (!staticData.inbox) throw new Error('The online engine has not published its inbox yet. Try again after its next pass (up to 15 minutes).');
+    const request = { id: crypto.randomUUID(), at: Date.now(), text: String(body.text || ''), stake: body.stake, bookmaker: body.bookmaker,
+      skipProblems: Boolean(body.skipProblems), payout: body.payout };
+    const sealed = await sealMessage(staticKey, request);
+    if (sealed.length > INBOX_LIMIT) throw new Error('This ticket is too long to send online. Copy fewer lines (the matches and the amounts are enough).');
+    let response;
+    try { response = await fetch('https://ntfy.sh/' + staticData.inbox, { method: 'POST', body: sealed }); }
+    catch { throw new Error('Could not reach the inbox (ntfy.sh). Check the connection and try again.'); }
+    if (!response.ok) throw new Error('The inbox refused the ticket (HTTP ' + response.status + '). Try again in a minute.');
+    return { queued: true, id: request.id };
+  }
   if (path === '/api/matches/refresh') { await reloadStatic(true); return { ok: true }; }
   throw new Error(READ_ONLY);
 }
@@ -82,7 +104,7 @@ export async function me() {
 export const get = path => STATIC ? staticGet(path) : request(path);
 
 export async function post(path, body = {}) {
-  if (STATIC) return staticPost(path);
+  if (STATIC) return staticPost(path, body);
   if (!csrf) await me();
   return request(path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf }, body: JSON.stringify(body) });
 }

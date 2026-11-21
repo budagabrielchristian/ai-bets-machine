@@ -9,7 +9,6 @@ import { useBetContext } from '../context/BetContext';
 import { Archive, ArrowUpRight, Clock, Target } from 'lucide-react';
 import BetAnalysis from '../components/BetAnalysis';
 import CopyTicket from '../components/CopyTicket';
-import { STATIC } from '../services/api';
 
 const MyBets = ({ autoOnly = false }) => {
   const { placedBets: history, currency,account } = useBetContext();
@@ -66,7 +65,7 @@ const MyBets = ({ autoOnly = false }) => {
           <label className="block mt-6">Ticket status <select className="bg-neutral-800 p-2 rounded" value={status} onChange={e=>setStatus(e.target.value)}>
             {['all','pending','won','lost','void'].map(value=><option key={value} value={value}>{value === 'void' ? 'Refunded' : value}</option>)}</select></label>
         </section>}
-        {!autoOnly && !STATIC && <CopyTicket />}
+        {!autoOnly && <CopyTicket />}
         {!autoOnly && <BetAnalysis tickets={manualBets} />}
         {!autoOnly && <h2 className="tickets-heading">Your tickets</h2>}
         {visible.length === 0 ? (

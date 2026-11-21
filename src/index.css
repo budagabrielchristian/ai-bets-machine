@@ -376,3 +376,9 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
 .copy-skip input {margin-top:.2rem;accent-color:#e7e5e0}
 .copy-payout {align-items:center;margin:.4rem 0 .6rem}
 .copy-payout .muted {margin:0;flex:1 1 16rem;font-size:.8rem}
+.copy-log {margin-top:1.4rem;border-top:1px solid #2e2e2c;padding-top:1rem}
+.copy-log h3 {font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:#999;font-weight:500;margin:0 0 .6rem}
+.copy-log ul {list-style:none;margin:0;padding:0;display:grid;gap:.45rem}
+.copy-log li {display:flex;gap:.5rem;align-items:flex-start;font-size:.82rem;color:#cfcdc7}
+.copy-log li svg {flex:none;margin-top:.2rem}
+.copy-log li.copy-problem {margin:0}

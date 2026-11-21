@@ -37,6 +37,12 @@ if (fs.existsSync(stateFile)) {
 // The engine reads DATA_DIR when it is imported, so import it only now.
 const engine = await import('../engine.js');
 const { getMatches } = await import('../feed.js');
+// Tickets copied on the online dashboard wait in an encrypted ntfy inbox.
+const { inboxTopic, processInbox } = await import('../inbox.js');
+const { sendReport } = await import('../notify.js');
+const { config: settings } = await import('../config.js');
+await processInbox({ key, state: engine.state, place: engine.placeCopy, server: settings.ntfyServer,
+  notify: ({ title, body }) => sendReport(title, body, undefined, 3) });
 await engine.refit();
 await engine.tick({ force: true });
 engine.flush();
@@ -47,7 +53,7 @@ fs.writeFileSync(stateFile, JSON.stringify(encrypt(key, salt, state)));
 let matches = [];
 try { matches = await getMatches({ maxAge: 15 * 60000 }); } catch { /* the page shows the feed error */ }
 fs.mkdirSync(path.dirname(outFile), { recursive: true });
-fs.writeFileSync(outFile, JSON.stringify(encrypt(key, salt, { generatedAt: Date.now(), state: engine.publicState(), matches, insights: engine.matchInsights(matches) })));
+fs.writeFileSync(outFile, JSON.stringify(encrypt(key, salt, { generatedAt: Date.now(), state: engine.publicState(), matches, insights: engine.matchInsights(matches), inbox: inboxTopic(key) })));
 
 // Numbers-only status, NOT encrypted: lets anyone (including you) check the engine
 // is alive without the password. No matches, selections or amounts are included.

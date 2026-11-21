@@ -5,12 +5,25 @@ const KEY_STORE = 'abm-key';
 export async function deriveKey(password, box) {
   const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(password.normalize('NFKC')), 'PBKDF2', false, ['deriveKey']);
   return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: bytes(box.salt), iterations: box.iterations, hash: 'SHA-256' },
-    base, { name: 'AES-GCM', length: 256 }, true, ['decrypt']);
+    base, { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
 }
 
 export async function decrypt(key, box) {
   const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bytes(box.iv) }, key, bytes(box.data));
   return JSON.parse(new TextDecoder().decode(plain));
+}
+
+const b64 = buf => { let s = ''; for (const c of new Uint8Array(buf)) s += String.fromCharCode(c); return btoa(s); };
+
+/**
+ * Encrypt a message for the engine (gzip, then AES-GCM with the dashboard key).
+ * Server counterpart: openMessage in server/inbox.js.
+ */
+export async function sealMessage(key, value) {
+  const zipped = await new Response(new Blob([JSON.stringify(value)]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer();
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const data = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, zipped);
+  return JSON.stringify({ v: 1, iv: b64(iv), data: b64(data) });
 }
 
 /** Keep the derived key for this browser tab only, so a reload does not ask again. */
@@ -23,7 +36,7 @@ export async function recallKey(salt) {
   try {
     const saved = JSON.parse(sessionStorage.getItem(KEY_STORE) || 'null');
     if (!saved || saved.salt !== salt) return null;
-    return crypto.subtle.importKey('raw', bytes(saved.key), 'AES-GCM', false, ['decrypt']);
+    return crypto.subtle.importKey('raw', bytes(saved.key), 'AES-GCM', false, ['encrypt', 'decrypt']);
   } catch { return null; }
 }
 

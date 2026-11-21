@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { CircleAlert, ClipboardPaste, Check } from 'lucide-react';
 import { useBetContext } from '../context/BetContext';
-import { post } from '../services/api';
+import { post, STATIC } from '../services/api';
 
 const toNumber = v => Number(String(v).replace(/\s/g, '').replace(',', '.'));
 const when = iso => new Date(iso).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Bucharest' });
 
 /** Paste a Betano or Superbet ticket as text and save it as a practice bet. */
 export default function CopyTicket() {
-  const { refreshState } = useBetContext();
+  const { refreshState, account } = useBetContext();
   const [text, setText] = useState('');
   const [book, setBook] = useState('');
   const [stake, setStake] = useState('');
@@ -34,8 +34,14 @@ export default function CopyTicket() {
   const save = async () => {
     setBusy(true); setError('');
     try {
-      const { ticket } = await post('/api/tickets/copy', { text, stake: Number(String(stake).replace(',', '.')), bookmaker: book, skipProblems: skip,
+      const result = await post('/api/tickets/copy', { text, stake: Number(String(stake).replace(',', '.')), bookmaker: book, skipProblems: skip,
         payout: payout && !partial ? toNumber(payout) : undefined });
+      if (result.queued) {
+        setSaved('Sent, encrypted, to the online engine. It saves the ticket on its next pass (within 15 minutes) and sends a notification to your phone.');
+        setText(''); setPreview(null); setStake(''); setSkip(false); setPayout('');
+        return;
+      }
+      const { ticket } = result;
       await refreshState();
       const n = new Set(ticket.selections.map(s => s.matchId)).size;
       setSaved('Saved: ' + n + ' match' + (n > 1 ? 'es' : '') + (ticket.leftOut ? ' (' + ticket.leftOut + ' left out)' : '') + ' at odds ' + ticket.totalOdds +
@@ -51,11 +57,13 @@ export default function CopyTicket() {
   const partial = skip && (problems.length > 0 || warnings.length > 0);
   const stakeValue = toNumber(stake);
   const plainReturn = stakeValue > 0 && preview?.totalOdds ? stakeValue * preview.totalOdds : null;
-  const ready = preview && usable.length && (skip || (!problems.length && !warnings.length)) && book && Number(String(stake).replace(',', '.')) > 0;
+  // Online, the preview only sees the published fixtures (about two days); the engine checks the rest itself.
+  const online = Boolean(preview?.online);
+  const ready = preview && usable.length && (skip || (!problems.length && (online || !warnings.length))) && book && Number(String(stake).replace(',', '.')) > 0;
 
   return <section className="copy-ticket" aria-labelledby="copy-ticket-title">
     <h2 id="copy-ticket-title">Copy a ticket</h2>
-    <p className="muted">Open your ticket in the Betano or Superbet app, copy all its text and paste it here. It is saved as a practice bet with the
+    <p className="muted">Open your ticket in the Betano or Superbet app, copy all its text and paste it here.{STATIC ? ' On this online page it is sent encrypted to the engine, which saves it within 15 minutes.' : ''} It is saved as a practice bet with the
       odds from the ticket and settled on the real results. Works for 1X2, goals (match, team, first half), GG/NG, double chance,
       half-time result and "Pauză sau Final", for matches in the next ten days, Romanian Liga 1 included.</p>
     <textarea value={text} onChange={e => { setText(e.target.value); setPreview(null); setSaved(''); }} rows={7} maxLength={20000}
@@ -91,6 +99,9 @@ export default function CopyTicket() {
             Math.abs(toNumber(payout) - plainReturn).toFixed(2) + ' RON against stake × odds.' : ' Leave it empty to use stake × odds.'}</p>
       </div>}
       {warnings.map(w => <p key={w} className="copy-problem"><CircleAlert size={15} aria-hidden="true" /> {w}</p>)}
+      {online && warnings.length > 0 && !problems.length && <p className="muted">This page only sees the next two days of fixtures. The online
+        engine checks the matches not found here against the next ten days and Romanian Liga 1; if one is still missing it tells you, and you can
+        send the ticket again with the box below ticked.</p>}
       {(problems.length > 0 || warnings.length > 0) && usable.length > 0 && <label className="copy-skip">
         <input type="checkbox" checked={skip} onChange={e => setSkip(e.target.checked)} />
         Leave out the flagged matches and save the rest{preview.totalOdds ? ' (total odds ' + preview.totalOdds + ' instead of the ticket’s)' : ''}</label>}
@@ -100,5 +111,11 @@ export default function CopyTicket() {
     </div>}
     {error && <p className="copy-problem" role="alert"><CircleAlert size={15} aria-hidden="true" /> {error}</p>}
     {saved && <p className="copy-saved" role="status">{saved}</p>}
+    {STATIC && account.copyLog?.length > 0 && <div className="copy-log">
+      <h3>Sent from this page</h3>
+      <ul>{account.copyLog.slice(0, 5).map(c => <li key={c.id} className={c.ok ? '' : 'copy-problem'}>
+        {c.ok ? <Check size={14} aria-hidden="true" /> : <CircleAlert size={14} aria-hidden="true" />}
+        <span><b>{c.ok ? 'Saved' : 'Not saved'}</b> · {when(c.at)} · {c.message}</span></li>)}</ul>
+    </div>}
   </section>;
 }
