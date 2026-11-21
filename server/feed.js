@@ -192,6 +192,77 @@ export function getMatches({ force = false, maxAge = 60000 } = {}) {
   return pending;
 }
 
+/* ------------------------------------- Romanian Liga 1 (TheSportsDB) --- */
+// ESPN has no Romanian Liga 1 games, so copied tickets with them use
+// TheSportsDB's free public API (fixtures and final scores, no odds, no
+// half-time scores). Only fetched when a ticket is copied or has such a game.
+
+const TSDB_DAY = day => 'https://www.thesportsdb.com/api/v1/json/123/eventsday.php?l=4691&d=' + day;
+export const isTsdb = id => String(id).startsWith('tsdb-');
+
+function parseTsdb(e) {
+  const time = Date.parse(String(e.strTimestamp || '').replace(/(\d)$/, '$1Z'));
+  if (!e.idEvent || !e.strHomeTeam || !e.strAwayTeam || !Number.isFinite(time)) return null;
+  const finished = /^(FT|AET|PEN|AP)$/i.test(e.strStatus || '');
+  const postponed = /yes/i.test(e.strPostponed || '') || /^(PST|CANC|ABD|postponed|cancelled)/i.test(e.strStatus || '');
+  return { id: 'tsdb-' + e.idEvent, league: 'rou.1', sport_title: 'Romanian Liga I', commence_time: new Date(time).toISOString(),
+    home_team: e.strHomeTeam, away_team: e.strAwayTeam, homeId: 'tsdb-' + e.idHomeTeam, awayId: 'tsdb-' + e.idAwayTeam,
+    statusName: postponed ? 'STATUS_POSTPONED' : finished ? 'STATUS_FULL_TIME' : /^(NS|TBD|)$/i.test(e.strStatus || '') ? 'STATUS_SCHEDULED' : 'STATUS_IN_PROGRESS',
+    bookmakers: [], tsdb: { finished, postponed, home: Number(e.intHomeScore), away: Number(e.intAwayScore) } };
+}
+
+// The free API allows about 30 requests a minute: each day is cached for 10
+// minutes, and a stale copy is used when a request is refused.
+const tsdbCache = new Map();
+async function tsdbDay(day) {
+  const hit = tsdbCache.get(day);
+  if (hit && Date.now() - hit.at < 10 * 60000) return hit.matches;
+  try {
+    const data = await getJson(TSDB_DAY(day));
+    const matches = (data.events || []).map(parseTsdb).filter(Boolean);
+    tsdbCache.set(day, { at: Date.now(), matches });
+    if (tsdbCache.size > 60) tsdbCache.delete(tsdbCache.keys().next().value);
+    return matches;
+  } catch (error) {
+    if (hit) return hit.matches;
+    throw error;
+  }
+}
+
+/** Final scores of Liga 1 games on the given YYYYMMDD days, shaped like getResults. */
+export async function getTsdbResults(days) {
+  const results = {};
+  const checked = new Set();
+  for (const day of days) {
+    try {
+      for (const m of await tsdbDay(day.slice(0, 4) + '-' + day.slice(4, 6) + '-' + day.slice(6))) {
+        if (m.tsdb.postponed) { results[m.id] = { void: true }; continue; }
+        if (!m.tsdb.finished || !Number.isFinite(m.tsdb.home) || !Number.isFinite(m.tsdb.away)) continue;
+        const { home, away } = m.tsdb;
+        results[m.id] = { homeTeam: m.home_team, awayTeam: m.away_team, homeScore: home, awayScore: away,
+          winningSelection: home > away ? m.home_team : home < away ? m.away_team : 'Draw' };
+      }
+      checked.add(day);
+    } catch { /* retried on the next tick */ }
+  }
+  return { results, checked };
+}
+
+/**
+ * Half-time score of a finished ESPN game: [home, away], null when ESPN has
+ * none for it (the leg is then refunded), or undefined when the download failed.
+ */
+export async function getHalfTime(id) {
+  if (isTsdb(id)) return null;
+  try {
+    const data = await getJson(ESPN + 'all/summary?event=' + encodeURIComponent(id));
+    const teams = data.header?.competitions?.[0]?.competitors || [];
+    const half = side => Number(teams.find(c => c.homeAway === side)?.linescores?.[0]?.displayValue);
+    const h = half('home'), a = half('away');
+    return Number.isFinite(h) && Number.isFinite(a) ? [h, a] : null;
+  } catch { return undefined; }
+}
+
 /**
  * For copying a betslip: the normal feed plus fixtures up to ten days ahead
  * (tickets often hold later games, e.g. next week's Champions League).
@@ -202,8 +273,15 @@ export async function getCopyFixtures() {
   const near = await getMatches({ maxAge: 2 * 60000 });
   if (Date.now() - later.at > 15 * 60000) {
     const offsets = [3, 4, 5, 6, 7, 8, 9, 10];
-    try { later = { at: Date.now(), matches: await fetchFixtures(new Date(), offsets, offsets) }; }
+    let espn = later.matches.filter(m => !isTsdb(m.id));
+    try { espn = await fetchFixtures(new Date(), offsets, offsets); }
     catch (error) { log.warn('Later fixtures unavailable: ' + error.message); }
+    // Romanian Liga 1, today and the next ten days (one small request per day).
+    const romanian = [];
+    for (let offset = 0; offset <= 10; offset++) {
+      try { romanian.push(...await tsdbDay(fixtureDay(new Date(), offset))); } catch { /* skipped this round */ }
+    }
+    later = { at: Date.now(), matches: [...espn, ...romanian] };
   }
   const ids = new Set(near.map(m => m.id));
   return [...near, ...later.matches.filter(m => !ids.has(m.id))];

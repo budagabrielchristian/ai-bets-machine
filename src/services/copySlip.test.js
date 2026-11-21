@@ -90,19 +90,19 @@ test('warns when the stated total odds do not match the picks read', () => {
 test('reads the Betano website betslip: singles, Bet Builders and Pauza sau Final', () => {
   const link = (name, slug) => '[' + name + '](https://ro.betano.com/cote/' + slug + '/123/)';
   const text = [
-    'VfL Wolfsburg', '1.45', 'Pauză sau Final', link('Bayern München', 'b-k'), link('FC Köln', 'b-k'), 'Mâine 14:00',
+    'Bayern München', '1.45', 'Pauză sau Final', link('Bayern München', 'b-k'), link('FC Köln', 'b-k'), 'Mâine 14:00',
     link('Bet Builder', 'a-c'), '1.52', link('Arsenal FC', 'a-c'), link('Chelsea FC', 'a-c'), 'Mâine 14:30', '',
     '* Arsenal FC', 'Rezultat final', '* Peste 1.5', 'Total goluri Peste/Sub', '',
     'Inter', '1.80', 'Rezultat final', link('Inter', 'i-c'), link('Como 1907', 'i-c'), 'Mâine 19:00',
     'Egal', '3.40', 'Rezultat final', link('Real Madrid', 'r-g'), link('Getafe', 'r-g'), 'Mâine 21:00',
   ].join('\n');
   const r = parseSlipText(text, FIXTURES, NOW);
-  assert.match(r.legs[0].problem, /Pauză sau Final/);
+  assert.deepEqual([r.legs[0].market, r.legs[0].team, r.legs[0].problem], ['half_or_full', 'home', undefined]);
   assert.deepEqual(r.legs.slice(1).map(l => [l.matchId, l.selection, l.builderPrice, l.problem]), [
     ['2', 'Arsenal', 1.52, undefined], ['2', 'Total goals - over 1.5', 1.52, undefined], ['3', 'Internazionale', undefined, undefined]]);
   assert.equal(r.legs[1].builderId, r.legs[2].builderId);
   assert.deepEqual(r.warnings, ['Not found in the fixture list: Real Madrid - Getafe']);
-  assert.equal(r.totalOdds, 2.74); // 1.52 x 1.80, the flagged and missing matches left out
+  assert.equal(r.totalOdds, 3.97); // 1.45 x 1.52 x 1.80, the missing match left out
 });
 
 test('reads the Betano app copy, where each team name appears twice and there are no links', () => {
@@ -116,6 +116,36 @@ test('reads the Betano app copy, where each team name appears twice and there ar
     ['1', 'Bayern Munich', 1.25, undefined], ['3', 'Internazionale', 1.6, undefined],
     ['2', 'Arsenal', 1.52, undefined], ['2', 'Total goals - over 1.5', 1.52, undefined]]);
   assert.equal(r.totalOdds, 3.04);
+  assert.equal(r.bookmaker, 'Betano'); // known from the layout, though the name is not in the text
+});
+
+test('reads the extra markets: half-time, Pauza sau Final, team goals, GG, double chance', () => {
+  const link = (name, slug) => '[' + name + '](https://ro.betano.com/cote/' + slug + '/1/)';
+  const fixtures = [...FIXTURES, fx('8', 'Real Madrid', 'Celta Vigo', 10, 'LALIGA'), fx('tsdb-9', 'Dinamo București', 'Petrolul Ploiești', 8, 'Romanian Liga I')];
+  const text = [
+    link('Bet Builder', 'rm'), '1.45', link('Real Madrid', 'rm'), link('RC Celta de Vigo', 'rm'), 'Diseară 22:00', '',
+    '* Real Madrid', 'Rezultat final', '* Peste 0.5', 'Goluri prima repriză Peste/Sub', '* Peste 1.5', 'Real Madrid - Total goluri Peste/Sub', '',
+    'Arsenal FC', '1.45', 'Pauză sau Final', link('Arsenal FC', 'ac'), link('Chelsea FC', 'ac'), 'Mâine 17:00',
+    'Dinamo București', '1.42', 'Rezultat final', 'Dinamo București', 'Dinamo București', 'Petrolul Ploiești', 'Petrolul Ploiești', 'Diseară 20:30',
+    'Da', '1.80', 'Ambele echipe marchează', link('Bayern München', 'bk'), link('FC Köln', 'bk'), 'Mâine 15:00',
+    'Inter Milano sau Egal', '1.10', 'Șansă dublă', link('Inter Milano', 'ic'), link('Como 1907', 'ic'), 'Mâine 21:45',
+  ].join('\n');
+  const r = parseSlipText(text, fixtures, NOW);
+  assert.deepEqual(r.warnings, []);
+  assert.deepEqual(r.legs.map(l => [l.matchId, l.market, l.team || l.side, l.line, l.problem]), [
+    ['8', 'h2h', 'home', undefined, undefined], ['8', 'ht_total', 'over', 0.5, undefined], ['8', 'team_total', 'home', 1.5, undefined],
+    ['2', 'half_or_full', 'home', undefined, undefined], ['tsdb-9', 'h2h', 'home', undefined, undefined],
+    ['1', 'btts', 'yes', undefined, undefined], ['3', 'double', 'homeDraw', undefined, undefined]]);
+  assert.equal(r.legs[2].selection, 'Real Madrid goals - over 1.5');
+  assert.equal(r.totalOdds, Number((1.45 * 1.45 * 1.42 * 1.8 * 1.1).toFixed(2)));
+});
+
+test('reads the stake and the payout with the Betano bonus', () => {
+  const r = parseSlipText('Arsenal - Chelsea\n1\n2.00\nPariază\n10,00 lei\nBONUS MULTIPLU 20%\n+32,24 lei\nCâștiguri potențiale\n623,71 lei', FIXTURES, NOW);
+  assert.equal(r.stake, 10);
+  assert.equal(r.payout, 623.71);
+  assert.equal(parseSlipText('Câștiguri potențiale 1.234,50 lei', FIXTURES, NOW).payout, 1234.5);
+  assert.equal(parseSlipText('Arsenal - Chelsea\n1\n2.00', FIXTURES, NOW).payout, undefined);
 });
 
 test('a price far from the feed is flagged as a misread', () => {

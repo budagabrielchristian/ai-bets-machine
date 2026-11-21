@@ -175,6 +175,7 @@ const MyBets = ({ autoOnly = false }) => {
                       <div className="w-full md:w-auto bg-black/30 px-6 py-3 rounded-xl border border-white/5 flex flex-col md:items-end">
                         <span className="text-xs text-gray-400 mb-1 uppercase tracking-wider">{receipt.status === 'won' ? 'Returned' : receipt.status === 'lost' ? 'Returned' : receipt.status === 'void' ? 'Refunded' : 'Potential Return'}</span>
                         <span className="text-2xl font-bold text-accent-green">{receipt.status === 'lost' ? '0.00' : receipt.status === 'void' ? Number(receipt.stake).toFixed(2) : receipt.potentialReturn} {receipt.currency || currency}</span>
+                        {receipt.bookAdjustment ? <span className="text-xs text-gray-400 mt-1">incl. {receipt.copiedFrom || 'bookmaker'} bonus and tax ({receipt.bookAdjustment > 0 ? '+' : '−'}{Math.abs(receipt.bookAdjustment).toFixed(2)})</span> : null}
                       </div>
                     </div>
                   </motion.div>

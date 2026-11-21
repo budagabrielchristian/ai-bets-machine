@@ -57,7 +57,7 @@ function removeTeam(text, keys) {
   return out.trim();
 }
 
-const SUMMARY = /(cota totala|cote totale|total odds|miza|suma pariata|stake|castig|plata|potential|bonus|taxa|impozit|cod bilet|booking code|id bilet)/;
+const SUMMARY = /(cota totala|pariaza|cote totale|total odds|miza|suma pariata|stake|castig|plata|potential|bonus|taxa|impozit|cod bilet|booking code|id bilet)/;
 const UNSUPPORTED = [
   [/\b(ambele|gg|ng|btts|both teams)\b/, 'Both teams to score is not supported yet'],
   [/\b(sansa dubla|dubla sansa|double chance|1x|x2|12)\b/, 'Double chance is not supported yet'],
@@ -166,8 +166,16 @@ function removeTeamRaw(text, match) {
 }
 
 function readStake(text) {
-  const m = plain(text).match(/(miza(?: totala)?|suma pariata|stake)\s*:?\s*(?:ron|lei)?\s*(\d+(?:[.,]\d{1,2})?)/);
+  const m = plain(text).match(/(miza(?: totala)?|suma pariata|pariaza|stake)\s*:?\s*(?:ron|lei)?\s*(\d+(?:[.,]\d{1,2})?)/);
   return m ? Number(m[2].replace(',', '.')) : undefined;
+}
+
+/** Betano's "Câștiguri potențiale 623,71 lei": the payout with its multi bonus (and tax) applied. */
+function readPayout(text) {
+  const m = plain(text).match(/(castiguri potentiale|castig potential|potential winnings|potential return)\s*:?\s*(\d{1,3}(?:[ .]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)/);
+  if (!m) return undefined;
+  const raw = m[2].replace(/[ .](?=\d{3}(\D|$))/g, '').replace(',', '.');
+  return Number.isFinite(Number(raw)) ? Number(raw) : undefined;
 }
 
 function readTotalOdds(text) {
@@ -208,28 +216,88 @@ function bestFixture(home, away, prepared) {
   return best;
 }
 
-const HALF_OR_FULL = '"Pauză sau Final" (win at half-time or full-time) cannot be settled: the results feed has no half-time scores';
+/** Which team a text names: 'home', 'away', or null. Uses the ticket's own names and the feed's. */
+function teamIn(text, entry, fx) {
+  const t = norm(text);
+  if (!t) return null;
+  const home = t === norm(entry.home) || (teamScore(t, fx.home) === 2 && !teamScore(t, fx.away)) || hasWord(t, norm(entry.home));
+  const away = t === norm(entry.away) || (teamScore(t, fx.away) === 2 && !teamScore(t, fx.home)) || hasWord(t, norm(entry.away));
+  return home && !away ? 'home' : away && !home ? 'away' : null;
+}
+
+/** 1 / X / 2 or a team name / "Egal". */
+function resultSide(pick, entry, fx) {
+  const p = norm(pick);
+  if (p === '1') return 'home';
+  if (p === '2') return 'away';
+  if (/^(x|egal|egalitate|draw)$/.test(p)) return 'draw';
+  return teamIn(pick, entry, fx);
+}
+
+/** "Peste 1.5" / "Sub 2,5" to { side, line }. */
+function goalLine(pick) {
+  const t = plain(pick).match(/(peste|sub|over|under)\s*\+?\s*(\d+[.,]5)\b/);
+  return t ? { side: ['peste', 'over'].includes(t[1]) ? 'over' : 'under', line: Number(t[2].replace(',', '.')) } : null;
+}
+
+const over = s => s === 'over' ? 'over' : 'under';
 
 /** One Betano pick: its name ("Chelsea FC", "Peste 1.5") and its market ("Rezultat final"). */
 function betanoPick(pick, market, entry, fx) {
-  const m = norm(market), p = norm(pick.replace(/^\*\s*/, ''));
-  if (/pauza sau final/.test(m)) return { problem: HALF_OR_FULL };
-  if (/\b(pauza|repriza)\b/.test(m)) return { problem: 'Half-time markets are not supported' };
+  pick = pick.replace(/^\*\s*/, '');
+  const m = norm(market), p = norm(pick);
+  const name = side => side === 'home' ? fx.m.home_team : fx.m.away_team;
+  const cannot = what => ({ problem: 'Could not read the ' + what + ' "' + pick + '"' });
+  const firstHalf = /\b(prima repriza|repriza 1|1 repriza|pauza|first half|half time)\b/.test(m);
+
+  // "Pauză sau Final": the team leads at half-time or wins the match.
+  if (/pauza sau final/.test(m)) {
+    const side = teamIn(pick, entry, fx);
+    return side ? { market: 'half_or_full', team: side, selection: name(side) + ' at half-time or full-time' } : cannot('pick');
+  }
+  if (/pauza final|repriza 2|a doua repriza|second half|ambele reprize|repriza cu cele mai multe/.test(m)) {
+    return { problem: 'The market "' + market + '" is not supported yet' };
+  }
+  if (/\b(ambele echipe marcheaza|ambele marcheaza|gg ng|btts|both teams to score)\b/.test(m) || /^gg$/.test(m)) {
+    if (firstHalf) return { problem: 'The market "' + market + '" is not supported yet' };
+    const side = /^(da|gg|yes)$/.test(p) ? 'yes' : /^(nu|ng|no)$/.test(p) ? 'no' : null;
+    return side ? { market: 'btts', side, selection: 'Both teams to score - ' + side } : cannot('pick');
+  }
+  if (/\b(sansa dubla|dubla sansa|double chance)\b/.test(m)) {
+    if (firstHalf) return { problem: 'The market "' + market + '" is not supported yet' };
+    let side = { '1x': 'homeDraw', 'x2': 'drawAway', '12': 'homeAway', '1 x': 'homeDraw', 'x 2': 'drawAway', '1 2': 'homeAway' }[p] || null;
+    if (!side) {
+      const parts = plain(pick).split(/\s+(?:sau|or|\/)\s+|\s*\/\s*/).map(x => resultSide(x, entry, fx));
+      const set = new Set(parts);
+      if (parts.length === 2 && set.size === 2) side = !set.has('away') ? 'homeDraw' : !set.has('home') ? 'drawAway' : !set.has('draw') ? 'homeAway' : null;
+    }
+    const label = { homeDraw: name('home') + ' or draw', drawAway: 'Draw or ' + name('away'), homeAway: name('home') + ' or ' + name('away') }[side];
+    return side ? { market: 'double', side, selection: 'Double chance - ' + label } : cannot('pick');
+  }
+  // Goals: whole match, first half, or one team ("Real Madrid - Total goluri Peste/Sub").
+  if (/\b(goluri|total)\b/.test(m)) {
+    const goals = goalLine(pick);
+    if (!goals) return cannot('goal line');
+    const rest = norm(m.replace(/\b(total|goluri|peste|sub|prima|repriza|repriza 1|pauza|marcate|de|ale|echipei)\b/g, ' '));
+    const team = rest ? teamIn(rest, entry, fx) : null;
+    if (rest && !team) return { problem: 'The market "' + market + '" is not supported yet' };
+    if (firstHalf) {
+      if (team) return { problem: 'Team goals in the first half are not supported yet' };
+      return { market: 'ht_total', side: over(goals.side), line: goals.line, selection: 'First-half goals - ' + goals.side + ' ' + goals.line };
+    }
+    if (team) return { market: 'team_total', team, side: over(goals.side), line: goals.line, selection: name(team) + ' goals - ' + goals.side + ' ' + goals.line };
+    return { market: 'total', side: over(goals.side), line: goals.line, selection: 'Total goals - ' + goals.side + ' ' + goals.line };
+  }
+  if (firstHalf && /\b(pauza|rezultat|1x2|prima repriza|repriza 1)\b/.test(m) && !/\b(marcheaza|cornere|cartonase|handicap)\b/.test(m)) {
+    const side = resultSide(pick, entry, fx);
+    return side ? { market: 'ht_h2h', side, selection: 'Half-time result - ' + (side === 'draw' ? 'Draw' : name(side)) } : cannot('pick');
+  }
   if (/^(rezultat final|final|1x2)$/.test(m)) {
-    let side = null;
-    if (p === norm(entry.home) || (teamScore(p, fx.home) === 2 && !teamScore(p, fx.away)) || p === '1') side = 'home';
-    else if (p === norm(entry.away) || (teamScore(p, fx.away) === 2 && !teamScore(p, fx.home)) || p === '2') side = 'away';
-    else if (/^(x|egal|egalitate|draw)$/.test(p)) side = 'draw';
-    if (!side) return { problem: 'Could not read the pick "' + pick + '"' };
-    return { market: 'h2h', side, selection: side === 'home' ? fx.m.home_team : side === 'away' ? fx.m.away_team : 'Draw' };
+    const side = resultSide(pick, entry, fx);
+    if (!side) return cannot('pick');
+    return { market: 'h2h', side, selection: side === 'draw' ? 'Draw' : name(side) };
   }
-  if (/^total goluri( peste sub)?$/.test(m)) {
-    const t = plain(pick).match(/(peste|sub|over|under)\s*(\d+[.,]5)\b/);
-    if (!t) return { problem: 'Could not read the goal line "' + pick + '"' };
-    const side = ['peste', 'over'].includes(t[1]) ? 'over' : 'under', line = Number(t[2].replace(',', '.'));
-    return { market: 'total', side, line, selection: 'Total goals - ' + side + ' ' + line };
-  }
-  return { problem: 'The market "' + market + '" is not supported yet (only Rezultat final and Total goluri)' };
+  return { problem: 'The market "' + market + '" is not supported yet' };
 }
 
 /**
@@ -330,6 +398,8 @@ export function parseSlipText(text, fixtures, now = Date.now()) {
   const upcoming = fixtures.filter(m => Number.isFinite(Date.parse(m.commence_time)));
   const prepared = upcoming.map(m => ({ m, home: teamKeys(m.home_team), away: teamKeys(m.away_team) }));
   let result = readBetano(raw, prepared);
+  // Betano's own layout (linked or doubled team names) tells the bookmaker even when its name is not in the text.
+  const layoutBook = result.found ? 'Betano' : null;
   if (!result || !result.found) {
     // Links copied from other pages: keep only their text.
     const lines = raw.map(l => l.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/^\*\s*/, '').trim()).filter(Boolean);
@@ -368,5 +438,5 @@ export function parseSlipText(text, fixtures, now = Date.now()) {
   if (statedOdds && totalOdds && ok.length === legs.length && Math.abs(statedOdds / totalOdds - 1) > 0.02) {
     warnings.push('The ticket says total odds ' + statedOdds + ' but the picks read multiply to ' + totalOdds + '.');
   }
-  return { legs, bookmaker: detectBookmaker(text), stake: readStake(text), statedOdds, totalOdds, warnings };
+  return { legs, bookmaker: detectBookmaker(text) || layoutBook, stake: readStake(text), payout: readPayout(text), statedOdds, totalOdds, warnings };
 }

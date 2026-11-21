@@ -374,3 +374,5 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
 .copy-preview .stats-table td small {display:block;color:#888;font-size:.7rem;font-weight:400}
 .copy-skip {display:flex;align-items:flex-start;gap:.55rem;margin:.9rem 0 .4rem;font-size:.85rem;color:#ccc;max-width:60ch;cursor:pointer}
 .copy-skip input {margin-top:.2rem;accent-color:#e7e5e0}
+.copy-payout {align-items:center;margin:.4rem 0 .6rem}
+.copy-payout .muted {margin:0;flex:1 1 16rem;font-size:.8rem}

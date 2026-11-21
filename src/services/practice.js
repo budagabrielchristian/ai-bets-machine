@@ -1,5 +1,6 @@
 import { buildSlips } from './buildSlips.js';
 import { jointProbability } from './jointMarket.js';
+import { EXTRA_MARKETS, settleExtra } from './legRules.js';
 import { rankMarkets } from './rankMarkets.js';
 
 export function availableFunds(account) {
@@ -41,6 +42,9 @@ export function grade(ticket, results) {
     const r = results[leg.matchId];
     if (!r) return 'pending';
     if (r.void) return 'void';
+    if (EXTRA_MARKETS.has(leg.market)) {
+      return settleExtra(leg, { home: r.homeScore, away: r.awayScore, htHome: r.htHome, htAway: r.htAway }) || 'pending';
+    }
     if (leg.market === 'handicap') {
       const difference = leg.side === 'home' ? r.homeScore - r.awayScore : r.awayScore - r.homeScore;
       return difference + leg.line > 0 ? 'won' : 'lost';

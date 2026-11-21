@@ -1,5 +1,6 @@
 // Analysis of your own (manual) bets: what worked, what cost money, and what to change.
 import { settledAt, ticketClv, ticketProfit } from './aiStats.js';
+import { EXTRA_MARKETS, readScore, settleExtra } from './legRules.js';
 
 /** Win / lose for one leg from its final score ("2-1"), or null before it is known. */
 export function legOutcome(leg) {
@@ -7,6 +8,11 @@ export function legOutcome(leg) {
   if (!m) return null;
   const h = Number(m[1]), a = Number(m[2]);
   const [home, away] = leg.teams || String(leg.matchTitle).split(' vs ');
+  if (EXTRA_MARKETS.has(leg.market)) {
+    const ht = leg.halfTime === 'unknown' ? [null, null] : readScore(leg.halfTime) || [undefined, undefined];
+    const r = settleExtra(leg, { home: h, away: a, htHome: ht[0], htAway: ht[1] });
+    return r === 'won' || r === 'lost' ? r : null;
+  }
   if (leg.market === 'total') return (leg.side === 'over' ? h + a > leg.line : h + a < leg.line) ? 'won' : 'lost';
   if (leg.market === 'handicap') return (leg.side === 'home' ? h - a : a - h) + leg.line > 0 ? 'won' : 'lost';
   const winner = h > a ? home : h < a ? away : 'Draw';

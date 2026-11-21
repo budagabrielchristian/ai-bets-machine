@@ -6,7 +6,8 @@ import { parseSlipText } from '../src/services/copySlip.js';
 import { AI, readOptions } from './ai/strategies.js';
 import { ELO, buildModels, marketProbability, predict } from './ai/ratings.js';
 import { config } from './config.js';
-import { feedStatus, findPrice, getCopyFixtures, getHistory, getMatches, getResults } from './feed.js';
+import { feedStatus, findPrice, getCopyFixtures, getHalfTime, getHistory, getMatches, getResults, getTsdbResults, isTsdb } from './feed.js';
+import { HALF_TIME_MARKETS } from '../src/services/legRules.js';
 import { log } from './log.js';
 import { notifyChanges } from './notify.js';
 import { testTick } from './testPeriod.js';
@@ -103,7 +104,7 @@ export const engineStatus = () => ({ lastTick: state.engine.lastTick || null, er
 
 const ymd = ms => new Date(ms).toISOString().slice(0, 10).replaceAll('-', '');
 
-async function settle(now) {
+export async function settle(now) {
   const open = state.tickets.filter(t => t.status === 'pending');
   const days = new Set();
   for (const ticket of open) for (const leg of ticket.selections) {
@@ -114,6 +115,20 @@ async function settle(now) {
   }
   if (!days.size) return [];
   const { results, checked } = await getResults([...days]);
+  // Romanian Liga 1 legs from copied tickets settle on TheSportsDB scores.
+  const tsdbDays = new Set();
+  for (const ticket of open) for (const leg of ticket.selections) {
+    const start = Date.parse(leg.matchDate);
+    if (isTsdb(leg.matchId) && start <= now) for (const delta of [-1, 0, 1]) tsdbDays.add(ymd(start + delta * DAY));
+  }
+  const tsdb = tsdbDays.size ? await getTsdbResults([...tsdbDays]) : { results: {}, checked: new Set() };
+  Object.assign(results, tsdb.results);
+  // Half-time picks: fetch the half-time score once the final score is in, and keep it on the leg.
+  for (const ticket of open) for (const leg of ticket.selections) {
+    if (!HALF_TIME_MARKETS.has(leg.market) || leg.halfTime || !results[leg.matchId] || results[leg.matchId].void) continue;
+    const half = await getHalfTime(leg.matchId);
+    if (half !== undefined) leg.halfTime = half ? half[0] + '–' + half[1] : 'unknown';
+  }
   const changed = [];
   for (const ticket of state.tickets) {
     if (ticket.status !== 'pending') continue;
@@ -123,8 +138,13 @@ async function settle(now) {
     // download (PC offline, feed down) must never refund a bet.
     for (const leg of ticket.selections) {
       const start = Date.parse(leg.matchDate || ticket.matchDate);
-      const daysChecked = [-1, 0, 1].every(delta => checked.has(ymd(start + delta * DAY)));
+      const seen = isTsdb(leg.matchId) ? tsdb.checked : checked;
+      const daysChecked = [-1, 0, 1].every(delta => seen.has(ymd(start + delta * DAY)));
       if (!known[leg.matchId] && now - start > 3 * DAY && daysChecked) known[leg.matchId] = { void: true };
+      if (leg.halfTime && known[leg.matchId] && !known[leg.matchId].void) {
+        const ht = leg.halfTime === 'unknown' ? [null, null] : leg.halfTime.split('–').map(Number);
+        known[leg.matchId] = { ...known[leg.matchId], htHome: ht[0], htAway: ht[1] };
+      }
     }
     const status = grade(ticket, known);
     if (status !== 'pending') {
@@ -327,7 +347,7 @@ export async function previewCopy({ text }) {
  * Save a copied ticket as a manual practice bet. The server reads the text
  * again with its own fixtures; the odds are the ones written on the ticket.
  */
-export async function placeCopy({ text, stake, bookmaker, skipProblems = false }) {
+export async function placeCopy({ text, stake, bookmaker, skipProblems = false, payout }) {
   const parsed = await previewCopy({ text });
   const book = COPY_BOOKS.includes(bookmaker) ? bookmaker : parsed.bookmaker;
   if (!book) throw new UserError('Choose whether the ticket is from Betano or Superbet.');
@@ -347,15 +367,27 @@ export async function placeCopy({ text, stake, bookmaker, skipProblems = false }
     const match = byId.get(l.matchId);
     const base = { matchId: l.matchId, matchDate: l.matchDate, matchTitle: l.matchTitle, teams: l.teams, competition: l.competition,
       bookmaker: book, market: l.market, selection: l.selection, side: l.market === 'h2h' ? undefined : l.side,
-      line: l.market === 'h2h' ? undefined : l.line, price: l.price, openingPrice: l.price, feedPrice: l.feedPrice,
+      line: l.market === 'h2h' ? undefined : l.line, team: l.team, price: l.price, openingPrice: l.price, feedPrice: l.feedPrice,
       builderId: l.builderId, builderPrice: l.builderPrice };
     const numbers = l.feedBookmaker ? legNumbers(match, { ...base, bookmaker: l.feedBookmaker }) : {};
     return { ...base, ...numbers };
   });
   const odds = parsed.totalOdds;
+  const plainReturn = Number((amount * odds).toFixed(2));
+  // Betano's payout ("Câștiguri potențiale") includes its multi bonus and the tax.
+  // It only applies to the whole ticket, and must be close to stake × odds.
+  let potentialReturn = plainReturn;
+  if (payout !== undefined && payout !== null && payout !== '') {
+    const value = Math.round(Number(payout) * 100) / 100;
+    if (leftOut) throw new UserError('The payout from the ticket only fits the whole ticket. Clear it when matches are left out.');
+    if (!(value >= plainReturn * 0.7 && value <= plainReturn * 1.6)) {
+      throw new UserError('A payout of ' + value + ' lei does not fit a ' + amount + ' lei stake at odds ' + odds + ' (' + plainReturn + ' lei). Check the number.');
+    }
+    potentialReturn = value;
+  }
   const ticket = { id: crypto.randomUUID(), source: 'manual', copiedFrom: book, leftOut: leftOut || undefined, status: 'pending', season: state.ais.manual.season,
-    datePlaced: new Date().toISOString(), stake: amount, totalOdds: odds, currency: 'RON',
-    potentialReturn: Number((amount * odds).toFixed(2)), selections: legs };
+    datePlaced: new Date().toISOString(), stake: amount, totalOdds: odds, currency: 'RON', potentialReturn,
+    bookAdjustment: potentialReturn !== plainReturn ? Number((potentialReturn - plainReturn).toFixed(2)) : undefined, selections: legs };
   state.tickets.unshift(ticket);
   save();
   return ticket;
