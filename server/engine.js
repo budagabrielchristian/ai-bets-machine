@@ -11,6 +11,7 @@ import { HALF_TIME_MARKETS } from '../src/services/legRules.js';
 import { log } from './log.js';
 import { notifyChanges } from './notify.js';
 import { testTick } from './testPeriod.js';
+import { applyTopUps } from './topups.js';
 import { backup, readJson, writeJson } from './store.js';
 
 const MINUTE = 60000, HOUR = 60 * MINUTE, DAY = 24 * HOUR;
@@ -53,7 +54,7 @@ export const walletTickets = key =>
 export function publicState() {
   return {
     ais: Object.fromEntries(Object.entries(state.ais).map(([key, v]) =>
-      [key, { season: v.season, deposit: v.deposit, enabled: v.enabled, lastScan: v.lastScan, note: v.note }])),
+      [key, { season: v.season, deposit: v.deposit, enabled: v.enabled, lastScan: v.lastScan, note: v.note, topUps: v.topUps }])),
     tickets: state.tickets.map(({ selections, ...t }) => ({ ...t, selections: selections.map(({ jointModel, ...s }) => s) })),
     settings: state.settings,
     copyLog: state.copyLog || [],
@@ -219,6 +220,7 @@ export async function tick({ force = false } = {}) {
     }
     trackClosingPrices(matches, Date.now());
     const betting = await testTick({ state, now: Date.now(), newSeason, walletTickets });
+    applyTopUps(state, { now: Date.now() });
     for (const [key, ai] of Object.entries(AI)) {
       const wallet = state.ais[key];
       if (!betting) { wallet.note = 'Test period finished · no new bets. Final results are on the leaderboard.'; continue; }

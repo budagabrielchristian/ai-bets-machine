@@ -149,7 +149,7 @@ export default function Leaderboard() {
       </tr></thead>
       <tbody>{rows.map((r, i) => <tr key={r.key} className={r.wallet.enabled === false ? 'paused' : ''}>
         <td className="rank">{i + 1}</td>
-        <th scope="row"><Link to={r.manual ? '/my-bets' : '/auto-pilot?strategy=' + r.key}>{r.name}</Link><small>{r.manual ? 'Your bet slips' : r.method}{r.wallet.enabled === false ? ' · paused' : ''}</small></th>
+        <th scope="row"><Link to={r.manual ? '/my-bets' : '/auto-pilot?strategy=' + r.key}>{r.name}</Link><small>{r.manual ? 'Your bet slips' : r.method}{r.wallet.topUps?.length ? ' · topped up +' + r.wallet.topUps.reduce((s, t) => s + t.amount, 0) + ' RON' : ''}{r.wallet.enabled === false ? ' · paused' : ''}</small></th>
         <td className="num"><PL value={r.stats.profit} animated /></td>
         <td className={'num pl-' + trend(r.stats.roi)}>{r.stats.settled ? percent(r.stats.roi) : '-'}</td>
         <td className="num">{r.manual ? '-' : r.stats.balance.toFixed(2)}<small>{r.stats.pending} open{r.stats.reserved ? ' · ' + r.stats.reserved.toFixed(2) : ''}</small></td>
